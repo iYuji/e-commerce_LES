@@ -1,506 +1,705 @@
-// Utilidades de armazenamento
-const STORAGE_KEY = 'clients';
+// Utilidades e estado da aplicação (SPA E-commerce TCG)
 const THEME_KEY = 'theme';
+const SESSION_KEY = 'session';
+const __memStore = {};
+const STORE_KEYS = {
+  cards: 'cards',
+  cart: 'cart',
+  orders: 'orders',
+  customers: 'customers',
+  coupons: 'coupons',
+  exchanges: 'exchanges',
+};
 
-function loadClients() {
+const qs = sel => document.querySelector(sel);
+const qsa = sel => Array.from(document.querySelectorAll(sel));
+const fmtCurrency = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+const fmtDate = iso => new Date(iso).toLocaleString('pt-BR');
+
+function readStore(key, fallback) {
   try {
-    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(data) ? data : [];
+    const raw = localStorage.getItem(key);
+    if (raw === null || typeof raw === 'undefined') return fallback;
+    const v = JSON.parse(raw);
+    return (v === null || typeof v === 'undefined') ? fallback : v;
   } catch {
-    return [];
+    if (Object.prototype.hasOwnProperty.call(__memStore, key)) return __memStore[key];
+    return fallback;
+  }
+}
+function writeStore(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    __memStore[key] = value;
   }
 }
 
-function saveClients(clients) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(clients));
+// Sessão
+function getSession() { return readStore(SESSION_KEY, { userId: null }); }
+function setSession(s) { writeStore(SESSION_KEY, s); updateAuthNav(); }
+function requireAuth(redirectTo = '#/auth') { const s = getSession(); if (!s.userId) { location.hash = redirectTo; return false; } return true; }
+function updateAuthNav() {
+  const s = getSession();
+  const logged = !!s.userId;
+  const elLogin = qs('#nav-login');
+  const elLogout = qs('#nav-logout');
+  const elAccount = qs('#nav-account');
+  const elOrders = qs('#nav-orders');
+  if (elLogin) elLogin.style.display = logged ? 'none' : '';
+  if (elLogout) elLogout.style.display = logged ? '' : 'none';
+  if (elAccount) elAccount.style.display = logged ? '' : 'none';
+  if (elOrders) elOrders.style.display = logged ? '' : 'none';
 }
 
-function findClientById(id) {
-  return loadClients().find(c => c.id === id) || null;
-}
-
-function upsertClient(client) {
-  const clients = loadClients();
-  const existingIdx = clients.findIndex(c => c.id === client.id);
-  if (existingIdx >= 0) clients[existingIdx] = client; else clients.push(client);
-  saveClients(clients);
-  return client;
-}
-
-function updateClientPartial(id, patch) {
-  const clients = loadClients();
-  const idx = clients.findIndex(c => c.id === id);
-  if (idx < 0) return null;
-  clients[idx] = { ...clients[idx], ...patch };
-  saveClients(clients);
-  return clients[idx];
-}
-
-// Views helpers
-const qs = sel => document.querySelector(sel);
-const qsa = sel => Array.from(document.querySelectorAll(sel));
-const fmtCurrency = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
-const fmtDate = iso => new Date(iso).toLocaleString('pt-BR');
-
-function showView(id) {
-  qsa('.view').forEach(v => v.classList.add('hidden'));
-  qs('#' + id).classList.remove('hidden');
-}
-
-// Theme handling
+// Tema
 function applyTheme(theme) {
   const t = theme === 'light' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', t);
   const btn = qs('#btn-toggle-theme');
   if (btn) {
     btn.textContent = t === 'light' ? '🌞' : '🌙';
     btn.title = t === 'light' ? 'Alternar para modo escuro' : 'Alternar para modo claro';
   }
 }
-
 function initTheme() {
   const stored = localStorage.getItem(THEME_KEY);
-  if (stored) {
-    applyTheme(stored);
-    return;
-  }
-  // Preferência do sistema
+  if (stored) return applyTheme(stored);
   const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
   applyTheme(prefersLight ? 'light' : 'dark');
 }
 
-// Render list
-function applyFilters() {
-  const name = qs('#filter-name').value.trim().toLowerCase();
-  const email = qs('#filter-email').value.trim().toLowerCase();
-  const cpf = qs('#filter-cpf').value.trim();
-  const phone = qs('#filter-phone').value.trim();
-  const status = qs('#filter-status').value;
-  const clients = loadClients();
-  return clients.filter(c => {
-    if (name && !c.name.toLowerCase().includes(name)) return false;
-    if (email && !c.email.toLowerCase().includes(email)) return false;
-    if (cpf && !c.cpf.includes(cpf)) return false;
-    if (phone && !c.phone.includes(phone)) return false;
-    if (status !== 'all') {
-      const shouldBeActive = status === 'active';
-      if (!!c.active !== shouldBeActive) return false;
-    }
-    return true;
-  });
-}
-
-function renderList() {
-  const tbody = qs('#clients-tbody');
-  tbody.innerHTML = '';
-  const rows = applyFilters();
-  rows.forEach(c => {
-    const tr = document.createElement('tr');
-    const statusChip = `<span class="chip ${c.active ? 'success' : 'danger'}">${c.active ? 'Ativo' : 'Inativo'}</span>`;
-    tr.innerHTML = `
-      <td>${statusChip}</td>
-      <td>${c.name}</td>
-      <td>${c.email}</td>
-      <td>${c.cpf}</td>
-      <td>${c.phone}</td>
-      <td class="right">
-        <button class="btn small" data-action="view" data-id="${c.id}">Abrir</button>
-        <button class="btn small" data-action="edit" data-id="${c.id}">Editar</button>
-        <button class="btn small" data-action="toggle" data-id="${c.id}">${c.active ? 'Inativar' : 'Reativar'}</button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  tbody.querySelectorAll('button').forEach(btn => btn.addEventListener('click', e => {
-    const id = e.currentTarget.getAttribute('data-id');
-    const action = e.currentTarget.getAttribute('data-action');
-    if (action === 'view') openDetail(id);
-    if (action === 'edit') openForm(id);
-    if (action === 'toggle') toggleActive(id);
-  }));
-}
-
-// Create/Edit form
-function resetForm() {
-  qs('#client-id').value = '';
-  qs('#client-name').value = '';
-  qs('#client-email').value = '';
-  qs('#client-cpf').value = '';
-  qs('#client-phone').value = '';
-  qs('#client-password').value = '';
-  qs('#client-password-confirm').value = '';
-  qs('#client-active').checked = true;
-  qs('#password-hint').textContent = '';
-}
-
-function openForm(id) {
-  resetForm();
-  const isEdit = !!id;
-  qs('#form-title').textContent = isEdit ? 'Editar Cliente' : 'Novo Cliente';
-  if (isEdit) {
-    const c = findClientById(id);
-    if (!c) return;
-    qs('#client-id').value = c.id;
-    qs('#client-name').value = c.name || '';
-    qs('#client-email').value = c.email || '';
-    qs('#client-cpf').value = c.cpf || '';
-    qs('#client-phone').value = c.phone || '';
-    qs('#client-active').checked = !!c.active;
-    qs('#password-hint').textContent = 'Deixe a senha em branco para manter a atual.';
+// Seed de dados
+(function seed() {
+  if (!readStore(STORE_KEYS.cards)) {
+    const demoCards = [
+      { id: 'bulbasaur-1', name: 'Bulbasaur', rarity: 'Comum', set: 'Base', price: 9.9, stock: 25, active: true, image: '', description: 'Bulbasaur da coleção Base.' },
+      { id: 'charmander-1', name: 'Charmander', rarity: 'Comum', set: 'Base', price: 12.5, stock: 18, active: true, image: '', description: 'Charmander da coleção Base.' },
+      { id: 'squirtle-1', name: 'Squirtle', rarity: 'Comum', set: 'Base', price: 11.0, stock: 20, active: true, image: '', description: 'Squirtle da coleção Base.' },
+      { id: 'pikachu-rare', name: 'Pikachu', rarity: 'Rara', set: 'Jungle', price: 49.9, stock: 8, active: true, image: '', description: 'Pikachu edição Jungle.' },
+      { id: 'charizard-holo', name: 'Charizard', rarity: 'Ultra Rara', set: 'Base', price: 1499.9, stock: 1, active: true, image: '', description: 'Charizard holográfico clássico.' },
+    ];
+    writeStore(STORE_KEYS.cards, demoCards);
   }
-  showView('view-form');
+  if (!readStore(STORE_KEYS.cart)) writeStore(STORE_KEYS.cart, []);
+  if (!readStore(STORE_KEYS.orders)) writeStore(STORE_KEYS.orders, []);
+  if (!readStore(STORE_KEYS.coupons)) writeStore(STORE_KEYS.coupons, [{ code: 'BEMVINDO10', percentage: 10, active: true }]);
+  if (!readStore(STORE_KEYS.customers)) writeStore(STORE_KEYS.customers, [{
+    id: 'me', name: 'Treinador', email: 'treinador@example', addresses: [], cards: [], password: '123', active: true
+  }]);
+  if (!readStore(STORE_KEYS.exchanges)) writeStore(STORE_KEYS.exchanges, []);
+})();
+
+// Carrinho
+function getCart() { return readStore(STORE_KEYS.cart, []); }
+function setCart(items) { writeStore(STORE_KEYS.cart, items); updateCartNav(); }
+function addToCart(cardId, qty) {
+  const items = getCart();
+  const found = items.find(i => i.id === cardId);
+  if (found) found.qty += qty; else items.push({ id: cardId, qty });
+  setCart(items);
+}
+function removeFromCart(cardId) { setCart(getCart().filter(i => i.id !== cardId)); }
+function updateQty(cardId, qty) { const items = getCart(); const f = items.find(i => i.id === cardId); if (f) { f.qty = Math.max(1, qty|0); setCart(items);} }
+function cartTotal() {
+  const cards = readStore(STORE_KEYS.cards, []);
+  return getCart().reduce((sum, it) => {
+    const c = cards.find(x => x.id === it.id);
+    return sum + (c ? c.price * it.qty : 0);
+  }, 0);
+}
+function updateCartNav() {
+  const el = qs('#nav-cart');
+  if (!el) return;
+  const count = getCart().reduce((n, i) => n + i.qty, 0);
+  el.textContent = `Carrinho (${count})`;
 }
 
-function handleFormSubmit(ev) {
-  ev.preventDefault();
-  const id = qs('#client-id').value || crypto.randomUUID();
-  const payload = {
-    id,
-    name: qs('#client-name').value.trim(),
-    email: qs('#client-email').value.trim(),
-    cpf: qs('#client-cpf').value.trim(),
-    phone: qs('#client-phone').value.trim(),
-    active: qs('#client-active').checked,
-  };
+// Router
+const routes = new Map();
+function route(path, handler) { routes.set(path, handler); }
+function parseHash() {
+  const h = location.hash.replace(/^#/, '') || '/catalogo';
+  const [pathname, rawQuery] = h.split('?');
+  const segments = pathname.split('/').filter(Boolean);
+  return { pathname: '/' + segments.join('/'), segments, query: Object.fromEntries(new URLSearchParams(rawQuery || '')) };
+}
+function navigate(path) { location.hash = path; }
+function render(content) { const app = qs('#app'); if (app) app.innerHTML = content; }
 
-  const pass = qs('#client-password').value;
-  const pass2 = qs('#client-password-confirm').value;
-  const isEdit = !!qs('#client-id').value;
-  if (!isEdit || pass || pass2) {
-    if (pass !== pass2) {
-      alert('As senhas não coincidem.');
-      return;
-    }
-    if (!pass) {
-      alert('Informe a senha.');
-      return;
-    }
-    payload.password = pass;
-  } else {
-    // manter senha atual
-    const existing = findClientById(id);
-    payload.password = existing ? existing.password : '';
+function startRouter() {
+  function dispatch() {
+    const { pathname, segments, query } = parseHash();
+    if (segments[0] === 'carta' && segments[1]) return pageCardDetail(segments[1]);
+    if (pathname === '/logout') { setSession({ userId: null }); navigate('#/auth'); return; }
+    const handler = routes.get(pathname) || pageNotFound;
+    handler({ segments, query });
   }
-
-  const existing = findClientById(id);
-  if (!existing) {
-    payload.addresses = [];
-    payload.creditCards = [];
-    payload.transactions = [];
-  } else {
-    payload.addresses = existing.addresses || [];
-    payload.creditCards = existing.creditCards || [];
-    payload.transactions = existing.transactions || [];
-  }
-  upsertClient(payload);
-  renderList();
-  showView('view-list');
+  window.addEventListener('hashchange', dispatch);
+  dispatch();
 }
 
-function toggleActive(id) {
-  const c = findClientById(id);
-  if (!c) return;
-  updateClientPartial(id, { active: !c.active });
-  renderList();
-}
-
-// Detail view
-let currentClientId = null;
-
-function openDetail(id) {
-  const c = findClientById(id);
-  if (!c) return;
-  currentClientId = id;
-  qs('#detail-title').textContent = `${c.name} ${c.active ? '' : '(inativo)'} `;
-  qs('#btn-toggle-active').textContent = c.active ? 'Inativar' : 'Reativar';
-
-  const kv = qs('#detail-key-values');
-  kv.innerHTML = '';
-  const rows = [
-    ['E-mail', c.email],
-    ['CPF', c.cpf],
-    ['Telefone', c.phone],
-    ['Status', c.active ? 'Ativo' : 'Inativo']
-  ];
-  rows.forEach(([k, v]) => {
-    const div = document.createElement('div');
-    div.className = 'row';
-    div.innerHTML = `<div class="key">${k}</div><div class="value">${v}</div>`;
-    kv.appendChild(div);
-  });
-
-  renderAddresses(c);
-  renderCards(c);
-  renderTransactions(c);
-  showView('view-detail');
-}
-
-// Addresses
-function renderAddresses(client) {
-  const wrap = qs('#addresses-list');
+// Views
+function pageCatalogo() {
+  const all = readStore(STORE_KEYS.cards, []).filter(c => c.active);
+  render(`
+    <section class="view">
+      <div class="toolbar">
+        <div class="grid">
+          <div class="form-field"><label>Nome</label><input id="f-name" placeholder="Ex.: Pikachu"></div>
+          <div class="form-field"><label>Raridade</label>
+            <select id="f-rarity"><option value="">Todas</option><option>Comum</option><option>Rara</option><option>Ultra Rara</option></select>
+          </div>
+          <div class="form-field"><label>Expansão</label><input id="f-set" placeholder="Ex.: Base"></div>
+          <div class="form-field"><label>Preço até</label><input id="f-price" type="number" min="0" step="0.01"></div>
+        </div>
+        <div class="form-actions"><button class="btn" id="btn-do-filter">Filtrar</button><button class="btn ghost" id="btn-clear-filter">Limpar</button></div>
+      </div>
+      <div class="cards" id="catalog-cards"></div>
+    </section>
+  `);
+  function renderCards(list) {
+    const wrap = qs('#catalog-cards');
   wrap.innerHTML = '';
-  (client.addresses || []).forEach(addr => {
+    list.forEach(c => {
     const div = document.createElement('div');
     div.className = 'card';
-    const line1 = `${addr.recipient} • ${addr.label}`;
-    const line2 = `${addr.street}, ${addr.number || 's/n'} - ${addr.neighborhood || ''}`;
-    const line3 = `${addr.city || ''} - ${addr.state || ''} · CEP ${addr.zip || ''}`;
     div.innerHTML = `
-      <strong>${line1}</strong>
-      <span class="muted">${line2}</span>
-      <span class="muted">${line3}</span>
+        <strong>${c.name}</strong>
+        <span class="muted">${c.set} • ${c.rarity}</span>
+        <span>${fmtCurrency(c.price)}</span>
       <div>
-        <button class="btn small" data-action="edit-address" data-id="${addr.id}">Editar</button>
-        <button class="btn small" data-action="delete-address" data-id="${addr.id}">Excluir</button>
+          <button class="btn small" data-action="view" data-id="${c.id}">Detalhes</button>
+          <button class="btn small" data-action="add" data-id="${c.id}">Adicionar ao Carrinho</button>
       </div>
     `;
     wrap.appendChild(div);
   });
-
   wrap.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
     const id = e.currentTarget.getAttribute('data-id');
     const action = e.currentTarget.getAttribute('data-action');
-    if (action === 'edit-address') openAddressForm(id);
-    if (action === 'delete-address') deleteAddress(id);
-  }));
+      if (action === 'view') navigate(`#/carta/${id}`);
+      if (action === 'add') { addToCart(id, 1); alert('Adicionado ao carrinho'); }
+    }));
+  }
+  function doFilter() {
+    const name = (qs('#f-name').value || '').toLowerCase().trim();
+    const rarity = (qs('#f-rarity').value || '').trim();
+    const set = (qs('#f-set').value || '').toLowerCase().trim();
+    const price = parseFloat(qs('#f-price').value || '0');
+    const list = all.filter(c => {
+      if (name && !c.name.toLowerCase().includes(name)) return false;
+      if (rarity && c.rarity !== rarity) return false;
+      if (set && !c.set.toLowerCase().includes(set)) return false;
+      if (price && c.price > price) return false;
+      return true;
+    });
+    renderCards(list);
+  }
+  qs('#btn-do-filter').addEventListener('click', doFilter);
+  qs('#btn-clear-filter').addEventListener('click', () => { qsa('.toolbar input').forEach(i => i.value = ''); qs('#f-rarity').value=''; renderCards(all); });
+  renderCards(all);
 }
 
-function openAddressForm(addressId) {
-  const client = findClientById(currentClientId);
-  const addr = (client.addresses || []).find(a => a.id === addressId);
-  qs('#address-id').value = addr ? addr.id : '';
-  qs('#address-label').value = addr ? addr.label : '';
-  qs('#address-recipient').value = addr ? addr.recipient : '';
-  qs('#address-zip').value = addr ? addr.zip || '' : '';
-  qs('#address-street').value = addr ? addr.street || '' : '';
-  qs('#address-number').value = addr ? addr.number || '' : '';
-  qs('#address-complement').value = addr ? addr.complement || '' : '';
-  qs('#address-neighborhood').value = addr ? addr.neighborhood || '' : '';
-  qs('#address-city').value = addr ? addr.city || '' : '';
-  qs('#address-state').value = addr ? addr.state || '' : '';
-  qs('#address-form').classList.remove('hidden');
+function pageCardDetail(id) {
+  const card = readStore(STORE_KEYS.cards, []).find(c => c.id === id);
+  if (!card) return pageNotFound();
+  render(`
+    <section class="view">
+      <div class="view-header">
+        <button class="btn ghost" onclick="location.hash='#/catalogo'">← Voltar</button>
+        <h2>${card.name}</h2>
+        <div class="spacer"></div>
+        <span>${fmtCurrency(card.price)}</span>
+      </div>
+      <div class="cards">
+        <div class="card">
+          <strong>${card.name}</strong>
+          <span class="muted">${card.set} • ${card.rarity}</span>
+          <span>Estoque: ${card.stock}</span>
+          <p class="muted">${card.description || ''}</p>
+          <div>
+            <label class="muted">Quantidade</label>
+            <input id="qty" type="number" min="1" value="1" style="width:120px">
+          </div>
+          <div>
+            <button class="btn primary" id="btn-add">Adicionar ao Carrinho</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  `);
+  qs('#btn-add').addEventListener('click', () => { const q = Math.max(1, parseInt(qs('#qty').value||'1',10)); addToCart(card.id, q); navigate('#/carrinho'); });
 }
 
-function deleteAddress(addressId) {
-  const client = findClientById(currentClientId);
-  client.addresses = (client.addresses || []).filter(a => a.id !== addressId);
-  upsertClient(client);
-  renderAddresses(client);
+function pageCarrinho() {
+  const cards = readStore(STORE_KEYS.cards, []);
+  function renderCart() {
+    const items = getCart();
+    const rows = items.map(it => {
+      const c = cards.find(x => x.id === it.id);
+      if (!c) return '';
+      return `
+        <tr>
+          <td>${c.name}</td>
+          <td>${fmtCurrency(c.price)}</td>
+          <td><input data-id="${c.id}" class="qty" type="number" min="1" value="${it.qty}" style="width:80px"></td>
+          <td>${fmtCurrency(c.price * it.qty)}</td>
+          <td class="right"><button class="btn small" data-action="rm" data-id="${c.id}">Remover</button></td>
+        </tr>
+      `;
+    }).join('');
+    render(`
+      <section class="view">
+        <h2>Carrinho</h2>
+        <div class="table-wrapper">
+          <table class="table">
+            <thead><tr><th>Item</th><th>Preço</th><th>Qtd</th><th>Subtotal</th><th class="right">Ações</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="5">Seu carrinho está vazio</td></tr>'}</tbody>
+          </table>
+        </div>
+        <div class="view-header">
+          <div class="spacer"></div>
+          <strong>Total: ${fmtCurrency(cartTotal())}</strong>
+          <button class="btn primary" id="go-checkout" ${getCart().length ? '' : 'disabled'}>Finalizar Compra</button>
+        </div>
+      </section>
+    `);
+    qsa('button[data-action="rm"]').forEach(b => b.addEventListener('click', e => { removeFromCart(e.currentTarget.getAttribute('data-id')); renderCart(); }));
+    qsa('input.qty').forEach(inp => inp.addEventListener('change', e => { updateQty(e.currentTarget.getAttribute('data-id'), parseInt(e.currentTarget.value||'1',10)); renderCart(); }));
+    const btn = qs('#go-checkout'); if (btn) btn.addEventListener('click', () => navigate('#/checkout'));
+  }
+  renderCart();
 }
 
-qs('#address-form').addEventListener('submit', e => {
+function pageCheckout() {
+  const customer = readStore(STORE_KEYS.customers, [])[0];
+  const coupons = readStore(STORE_KEYS.coupons, []);
+  const cards = readStore(STORE_KEYS.cards, []);
+  const items = getCart();
+  const orderTotal = cartTotal();
+  render(`
+    <section class="view">
+      <h2>Checkout</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Endereço de entrega</h3>
+          <div id="addr-list">${(customer.addresses||[]).map(a => `<label class="switch"><input type="radio" name="addr" value="${a.id}"><span>${a.label} • ${a.street}, ${a.number||'s/n'}</span></label>`).join('') || '<span class="muted">Nenhum endereço salvo.</span>'}</div>
+          <button class="btn small" id="add-addr">Novo endereço</button>
+          <form id="addr-form" class="grid hidden">
+            <input id="a-label" placeholder="Identificação" required>
+            <input id="a-street" placeholder="Rua" required>
+            <input id="a-number" placeholder="Número">
+            <input id="a-city" placeholder="Cidade">
+            <input id="a-state" placeholder="Estado">
+            <div class="form-actions span-2"><button class="btn primary" type="submit">Salvar</button><button class="btn ghost" type="button" id="cancel-addr">Cancelar</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h3>Pagamento</h3>
+          <label class="switch"><input type="radio" name="pay" value="card" checked><span>Cartão</span></label>
+          <label class="switch"><input type="radio" name="pay" value="coupon"><span>Cupom</span></label>
+          <div id="coupon-wrap" class="hidden">
+            <select id="coupon-select">${coupons.filter(c=>c.active).map(c=>`<option value="${c.code}">${c.code} • ${c.percentage}%</option>`).join('')}</select>
+          </div>
+        </div>
+        <div class="card span-2">
+          <h3>Revisão</h3>
+          <div class="table-wrapper">
+            <table class="table"><thead><tr><th>Item</th><th>Qtd</th><th>Preço</th></tr></thead><tbody>
+              ${items.map(it => { const c = cards.find(x=>x.id===it.id); return `<tr><td>${(c && c.name) || it.id}</td><td>${it.qty}</td><td>${fmtCurrency(((c ? c.price : 0)*it.qty))}</td></tr>`; }).join('')}
+            </tbody></table>
+          </div>
+          <div class="view-header"><div class="spacer"></div><strong>Total: ${fmtCurrency(orderTotal)}</strong><button class="btn primary" id="confirm">Confirmar Pedido</button></div>
+        </div>
+      </div>
+    </section>
+  `);
+  function refreshAddrList() {
+    const u = readStore(STORE_KEYS.customers, [])[0];
+    const wrap = qs('#addr-list');
+    wrap.innerHTML = (u.addresses||[]).map(a => `<label class="switch"><input type="radio" name="addr" value="${a.id}"><span>${a.label} • ${a.street}, ${a.number||'s/n'}</span></label>`).join('') || '<span class="muted">Nenhum endereço salvo.</span>';
+  }
+  qs('#add-addr').addEventListener('click', () => qs('#addr-form').classList.remove('hidden'));
+  qs('#cancel-addr').addEventListener('click', () => qs('#addr-form').classList.add('hidden'));
+  qs('#addr-form').addEventListener('submit', e => {
   e.preventDefault();
-  const client = findClientById(currentClientId);
-  const id = qs('#address-id').value || crypto.randomUUID();
-  const addr = {
-    id,
-    label: qs('#address-label').value.trim(),
-    recipient: qs('#address-recipient').value.trim(),
-    zip: qs('#address-zip').value.trim(),
-    street: qs('#address-street').value.trim(),
-    number: qs('#address-number').value.trim(),
-    complement: qs('#address-complement').value.trim(),
-    neighborhood: qs('#address-neighborhood').value.trim(),
-    city: qs('#address-city').value.trim(),
-    state: qs('#address-state').value.trim(),
-  };
-  const idx = (client.addresses || []).findIndex(a => a.id === id);
-  if (idx >= 0) client.addresses[idx] = addr; else (client.addresses || (client.addresses = [])).push(addr);
-  upsertClient(client);
-  qs('#address-form').classList.add('hidden');
-  qs('#address-form').reset();
-  renderAddresses(client);
-});
-
-qs('#btn-cancel-address').addEventListener('click', () => {
-  qs('#address-form').classList.add('hidden');
-  qs('#address-form').reset();
-});
-
-qs('#btn-add-address').addEventListener('click', () => {
-  qs('#address-id').value = '';
-  qs('#address-form').classList.remove('hidden');
-});
-
-// Cards
-function renderCards(client) {
-  const wrap = qs('#cards-list');
-  wrap.innerHTML = '';
-  (client.creditCards || []).forEach(card => {
-    const div = document.createElement('div');
-    div.className = 'card';
-    const masked = card.number.replace(/\d(?=\d{4})/g, '•');
-    div.innerHTML = `
-      <div style="display:flex; align-items:center; gap:8px;">
-        <strong>${card.label}</strong>
-        ${card.preferred ? '<span class="chip success">Preferencial</span>' : ''}
-      </div>
-      <span class="muted">${card.holder}</span>
-      <span class="muted">${masked} · ${card.expiry}</span>
-      <div>
-        <button class="btn small" data-action="make-preferred" data-id="${card.id}">Preferir</button>
-        <button class="btn small" data-action="edit-card" data-id="${card.id}">Editar</button>
-        <button class="btn small" data-action="delete-card" data-id="${card.id}">Excluir</button>
-      </div>
-    `;
-    wrap.appendChild(div);
+    const u = readStore(STORE_KEYS.customers, [])[0];
+    const addr = { id: crypto.randomUUID(), label: qs('#a-label').value.trim(), street: qs('#a-street').value.trim(), number: qs('#a-number').value.trim(), city: qs('#a-city').value.trim(), state: qs('#a-state').value.trim() };
+    (u.addresses || (u.addresses=[])).push(addr);
+    writeStore(STORE_KEYS.customers, [u]);
+    qs('#addr-form').classList.add('hidden');
+    qs('#addr-form').reset();
+    refreshAddrList();
   });
+  qsa('input[name="pay"]').forEach(r => r.addEventListener('change', () => {
+    const usingCoupon = (document.querySelector('input[name="pay"]:checked')||{}).value === 'coupon';
+    qs('#coupon-wrap').classList.toggle('hidden', !usingCoupon);
+  }));
+  qs('#confirm').addEventListener('click', () => {
+    if (!getCart().length) { alert('Carrinho vazio'); return; }
+    const addrId = (document.querySelector('input[name="addr"]:checked')||{}).value;
+    if (!addrId) { alert('Selecione um endereço'); return; }
+    const payType = (document.querySelector('input[name="pay"]:checked')||{}).value;
+    let discount = 0; let couponCode = null;
+    if (payType === 'coupon') {
+      couponCode = (qs('#coupon-select')||{}).value || null;
+      const c = readStore(STORE_KEYS.coupons, []).find(x => x.code === couponCode && x.active);
+      discount = c ? (cartTotal() * (c.percentage/100)) : 0;
+    }
+    const order = { id: crypto.randomUUID(), date: new Date().toISOString(), items: getCart(), total: cartTotal(), discount, couponCode, status: 'Aprovado' };
+    const orders = readStore(STORE_KEYS.orders, []);
+    orders.push(order);
+    writeStore(STORE_KEYS.orders, orders);
+    setCart([]);
+    alert('Pedido confirmado!');
+    navigate('#/meus-pedidos');
+  });
+}
 
-  wrap.querySelectorAll('button').forEach(b => b.addEventListener('click', e => {
+function pageMinhaConta() {
+  if (!requireAuth()) return;
+  const u = readStore(STORE_KEYS.customers, [])[0];
+  render(`
+    <section class="view">
+      <div class="view-header"><h2>Minha Conta</h2></div>
+      <div class="grid">
+        <form class="card" id="profile-form">
+          <h3>Dados do cliente</h3>
+          <div class="form-field"><label>Nome</label><input id="pf-name" value="${u.name||''}"></div>
+          <div class="form-field"><label>E-mail</label><input id="pf-email" value="${u.email||''}"></div>
+          <div class="form-field"><label>Senha</label><input id="pf-pass" type="password" placeholder="••••••"></div>
+          <div class="form-actions"><button class="btn primary">Salvar</button></div>
+        </form>
+        <div class="card">
+          <div class="section-header"><h3>Endereços</h3><button class="btn small" id="add-addr">Novo</button></div>
+          <div id="addr-list"></div>
+          <form id="addr-form" class="grid hidden">
+            <input id="a-label" placeholder="Identificação" required>
+            <input id="a-street" placeholder="Rua" required>
+            <input id="a-number" placeholder="Número">
+            <input id="a-city" placeholder="Cidade">
+            <input id="a-state" placeholder="Estado">
+            <div class="form-actions span-2"><button class="btn primary" type="submit">Salvar</button><button class="btn ghost" type="button" id="cancel-addr">Cancelar</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h3>Trocas</h3>
+          <p class="muted">Solicite troca de itens de um pedido.</p>
+          <button class="btn" id="go-exchange">Solicitar troca</button>
+        </div>
+      </div>
+    </section>
+  `);
+  qs('#profile-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const next = { ...u, name: qs('#pf-name').value.trim(), email: qs('#pf-email').value.trim() };
+    const pass = qs('#pf-pass').value; if (pass) next.password = pass;
+    writeStore(STORE_KEYS.customers, [next]); alert('Perfil salvo');
+  });
+  function refreshAddr() {
+    const user = readStore(STORE_KEYS.customers, [])[0];
+    const wrap = qs('#addr-list');
+    wrap.innerHTML = (user.addresses||[]).map(a => `<div class="card"><strong>${a.label}</strong><span class="muted">${a.street}, ${a.number||'s/n'} - ${a.city||''}/${a.state||''}</span><div><button class="btn small" data-id="${a.id}" data-action="del">Excluir</button></div></div>`).join('') || '<span class="muted">Nenhum endereço</span>';
+    wrap.querySelectorAll('button[data-action="del"]').forEach(b => b.addEventListener('click', e => {
+      const id = e.currentTarget.getAttribute('data-id');
+      const u2 = readStore(STORE_KEYS.customers, [])[0];
+      u2.addresses = (u2.addresses||[]).filter(a => a.id !== id);
+      writeStore(STORE_KEYS.customers, [u2]);
+      refreshAddr();
+    }));
+  }
+  qs('#add-addr').addEventListener('click', () => qs('#addr-form').classList.remove('hidden'));
+  qs('#cancel-addr').addEventListener('click', () => qs('#addr-form').classList.add('hidden'));
+  qs('#addr-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const u3 = readStore(STORE_KEYS.customers, [])[0];
+    const addr = { id: crypto.randomUUID(), label: qs('#a-label').value.trim(), street: qs('#a-street').value.trim(), number: qs('#a-number').value.trim(), city: qs('#a-city').value.trim(), state: qs('#a-state').value.trim() };
+    (u3.addresses || (u3.addresses=[])).push(addr);
+    writeStore(STORE_KEYS.customers, [u3]);
+    qs('#addr-form').classList.add('hidden');
+    qs('#addr-form').reset();
+    refreshAddr();
+  });
+  refreshAddr();
+  qs('#go-exchange').addEventListener('click', () => navigate('#/trocas'));
+}
+
+function pageMeusPedidos() {
+  if (!requireAuth()) return;
+  const orders = readStore(STORE_KEYS.orders, []).slice().reverse();
+  render(`
+    <section class="view">
+      <h2>Meus Pedidos</h2>
+      <div class="table-wrapper">
+        <table class="table"><thead><tr><th>Data</th><th>Total</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+          ${orders.map(o => `<tr><td>${fmtDate(o.date)}</td><td>${fmtCurrency(o.total - (o.discount||0))}</td><td>${o.status}</td><td><button class="btn small" data-id="${o.id}" data-action="exchange">Solicitar troca</button></td></tr>`).join('') || '<tr><td colspan="4">Nenhum pedido</td></tr>'}
+        </tbody></table>
+      </div>
+    </section>
+  `);
+  qsa('button[data-action="exchange"]').forEach(b => b.addEventListener('click', e => { const id = e.currentTarget.getAttribute('data-id'); navigate(`#/trocas?orderId=${id}`); }));
+}
+
+function pageTrocas(ctx) {
+  if (!requireAuth()) return;
+  render(`
+    <section class="view">
+      <div class="grid">
+        <form class="card" id="exchange-form">
+          <h3>Solicitar troca</h3>
+          <input id="ex-order" placeholder="ID do pedido" value="${(ctx && ctx.query && ctx.query.orderId) || ''}">
+          <input id="ex-reason" placeholder="Motivo" class="span-2">
+          <div class="form-actions span-2"><button class="btn primary">Enviar</button></div>
+        </form>
+      </div>
+    </section>
+  `);
+  qs('#exchange-form').addEventListener('submit', e => {
+    e.preventDefault();
+    const list = readStore(STORE_KEYS.exchanges, []);
+    list.push({ id: crypto.randomUUID(), orderId: qs('#ex-order').value.trim(), reason: qs('#ex-reason').value.trim(), date: new Date().toISOString(), status: 'Solicitado' });
+    writeStore(STORE_KEYS.exchanges, list);
+    alert('Troca solicitada');
+  });
+}
+
+// Admin: Cartas (CRUD simples)
+function pageAdminCartas() {
+  const cards = readStore(STORE_KEYS.cards, []);
+  render(`
+    <section class="view">
+      <div class="view-header"><h2>Admin • Cartas</h2><div class="spacer"></div><button class="btn" id="new-card">Nova Carta</button></div>
+      <div class="table-wrapper"><table class="table"><thead><tr><th>Ativo</th><th>Nome</th><th>Raridade</th><th>Set</th><th>Preço</th><th>Estoque</th><th class="right">Ações</th></tr></thead><tbody>
+        ${cards.map(c => `<tr><td>${c.active? '✅':'❌'}</td><td>${c.name}</td><td>${c.rarity}</td><td>${c.set}</td><td>${fmtCurrency(c.price)}</td><td>${c.stock}</td><td class="right"><button class="btn small" data-action="edit" data-id="${c.id}">Editar</button><button class="btn small" data-action="toggle" data-id="${c.id}">${c.active?'Inativar':'Ativar'}</button></td></tr>`).join('')}
+      </tbody></table></div>
+      <dialog id="card-dialog">
+        <form method="dialog" id="card-form" class="grid">
+          <h3 id="card-title" class="span-2">Nova Carta</h3>
+          <input type="hidden" id="c-id">
+          <input id="c-name" placeholder="Nome" required>
+          <select id="c-rarity"><option>Comum</option><option>Rara</option><option>Ultra Rara</option></select>
+          <input id="c-set" placeholder="Expansão" required>
+          <input id="c-price" type="number" min="0" step="0.01" placeholder="Preço" required>
+          <input id="c-stock" type="number" min="0" step="1" placeholder="Estoque" required>
+          <label class="switch"><input type="checkbox" id="c-active" checked><span>Ativo</span></label>
+          <div class="form-actions span-2"><button value="cancel" class="btn ghost">Cancelar</button><button value="confirm" class="btn primary" id="save-card">Salvar</button></div>
+        </form>
+      </dialog>
+    </section>
+  `);
+  const dialog = document.getElementById('card-dialog');
+  function openEditor(card) {
+    qs('#card-title').textContent = card ? 'Editar Carta' : 'Nova Carta';
+    qs('#c-id').value = (card && card.id) || '';
+    qs('#c-name').value = (card && card.name) || '';
+    qs('#c-rarity').value = (card && card.rarity) || 'Comum';
+    qs('#c-set').value = (card && card.set) || '';
+    qs('#c-price').value = (card && typeof card.price !== 'undefined') ? card.price : '';
+    qs('#c-stock').value = (card && typeof card.stock !== 'undefined') ? card.stock : '';
+    qs('#c-active').checked = (card && typeof card.active !== 'undefined') ? !!card.active : true;
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+  }
+  qs('#new-card').addEventListener('click', () => openEditor(null));
+  qsa('button[data-action="edit"]').forEach(b => b.addEventListener('click', e => {
     const id = e.currentTarget.getAttribute('data-id');
-    const action = e.currentTarget.getAttribute('data-action');
-    if (action === 'edit-card') openCardForm(id);
-    if (action === 'delete-card') deleteCard(id);
-    if (action === 'make-preferred') makeCardPreferred(id);
+    const card = readStore(STORE_KEYS.cards, []).find(x => x.id === id);
+    openEditor(card);
   }));
-}
-
-function openCardForm(cardId) {
-  const client = findClientById(currentClientId);
-  const card = (client.creditCards || []).find(a => a.id === cardId);
-  qs('#card-id').value = card ? card.id : '';
-  qs('#card-label').value = card ? card.label : '';
-  qs('#card-holder').value = card ? card.holder : '';
-  qs('#card-number').value = card ? card.number : '';
-  qs('#card-expiry').value = card ? card.expiry : '';
-  qs('#card-preferred').checked = !!(card && card.preferred);
-  qs('#card-form').classList.remove('hidden');
-}
-
-function deleteCard(cardId) {
-  const client = findClientById(currentClientId);
-  client.creditCards = (client.creditCards || []).filter(a => a.id !== cardId);
-  // Garantir que exista ao menos um preferencial se houver cartões
-  if ((client.creditCards || []).length > 0 && !client.creditCards.some(c => c.preferred)) {
-    client.creditCards[0].preferred = true;
-  }
-  upsertClient(client);
-  renderCards(client);
-}
-
-function makeCardPreferred(cardId) {
-  const client = findClientById(currentClientId);
-  (client.creditCards || []).forEach(c => c.preferred = c.id === cardId);
-  upsertClient(client);
-  renderCards(client);
-}
-
-qs('#card-form').addEventListener('submit', e => {
-  e.preventDefault();
-  const client = findClientById(currentClientId);
-  const id = qs('#card-id').value || crypto.randomUUID();
-  const card = {
-    id,
-    label: qs('#card-label').value.trim(),
-    holder: qs('#card-holder').value.trim(),
-    number: qs('#card-number').value.trim(),
-    expiry: qs('#card-expiry').value.trim(),
-    preferred: qs('#card-preferred').checked,
-  };
-  const idx = (client.creditCards || []).findIndex(a => a.id === id);
-  if (card.preferred) {
-    (client.creditCards || []).forEach(c => c.preferred = false);
-  }
-  if (idx >= 0) client.creditCards[idx] = card; else (client.creditCards || (client.creditCards = [])).push(card);
-  // Se nenhum preferido marcado, define o primeiro
-  if (!(client.creditCards || []).some(c => c.preferred)) client.creditCards[0].preferred = true;
-  upsertClient(client);
-  qs('#card-form').classList.add('hidden');
-  qs('#card-form').reset();
-  renderCards(client);
-});
-
-qs('#btn-cancel-card').addEventListener('click', () => {
-  qs('#card-form').classList.add('hidden');
-  qs('#card-form').reset();
-});
-
-qs('#btn-add-card').addEventListener('click', () => {
-  qs('#card-id').value = '';
-  qs('#card-form').classList.remove('hidden');
-});
-
-// Transactions
-function renderTransactions(client) {
-  const tbody = qs('#transactions-tbody');
-  tbody.innerHTML = '';
-  (client.transactions || []).forEach(t => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${fmtDate(t.date)}</td>
-      <td>${t.description}</td>
-      <td>${fmtCurrency(t.amount)}</td>
-      <td>${t.status}</td>
-    `;
-    tbody.appendChild(tr);
+  qsa('button[data-action="toggle"]').forEach(b => b.addEventListener('click', e => {
+    const id = e.currentTarget.getAttribute('data-id');
+    const cards2 = readStore(STORE_KEYS.cards, []);
+    const idx = cards2.findIndex(x => x.id === id);
+    if (idx >= 0) { cards2[idx].active = !cards2[idx].active; writeStore(STORE_KEYS.cards, cards2); pageAdminCartas(); }
+  }));
+  qs('#save-card').addEventListener('click', e => {
+    e.preventDefault();
+    const id = qs('#c-id').value || crypto.randomUUID();
+    const card = { id, name: qs('#c-name').value.trim(), rarity: qs('#c-rarity').value, set: qs('#c-set').value.trim(), price: parseFloat(qs('#c-price').value||'0'), stock: parseInt(qs('#c-stock').value||'0',10), active: qs('#c-active').checked };
+    const cards3 = readStore(STORE_KEYS.cards, []);
+    const idx = cards3.findIndex(x => x.id === id);
+    if (idx >= 0) cards3[idx] = card; else cards3.push(card);
+    writeStore(STORE_KEYS.cards, cards3);
+    if (dialog.open) dialog.close();
+    pageAdminCartas();
   });
 }
 
-qs('#btn-add-transaction').addEventListener('click', () => {
-  const client = findClientById(currentClientId);
-  const fake = {
-    id: crypto.randomUUID(),
-    date: new Date().toISOString(),
-    description: 'Transação de teste',
-    amount: Number((Math.random() * 500 + 50).toFixed(2)),
-    status: 'Pago'
-  };
-  (client.transactions || (client.transactions = [])).push(fake);
-  upsertClient(client);
-  renderTransactions(client);
-});
+function pageAdminClientes() {
+  const customers = readStore(STORE_KEYS.customers, []);
+  render(`
+    <section class="view">
+      <h2>Admin • Clientes</h2>
+      <div class="table-wrapper"><table class="table"><thead><tr><th>Nome</th><th>E-mail</th><th>Status</th></tr></thead><tbody>
+        ${customers.map(c => `<tr><td>${c.name}</td><td>${c.email}</td><td>${c.active?'Ativo':'Inativo'}</td></tr>`).join('')}
+      </tbody></table></div>
+    </section>
+  `);
+}
 
-// Password only change
-const passwordDialog = qs('#password-dialog');
-qs('#btn-change-password').addEventListener('click', () => {
-  if (typeof passwordDialog.showModal === 'function') passwordDialog.showModal();
-});
+function pageAdminVendas() {
+  const orders = readStore(STORE_KEYS.orders, []);
+  render(`
+    <section class="view">
+      <h2>Admin • Vendas</h2>
+      <div class="table-wrapper"><table class="table"><thead><tr><th>Data</th><th>Total</th><th>Status</th><th class="right">Ações</th></tr></thead><tbody>
+        ${orders.map((o,i)=>`<tr><td>${fmtDate(o.date)}</td><td>${fmtCurrency(o.total - (o.discount||0))}</td><td>${o.status}</td><td class="right"><button class="btn small" data-i="${i}" data-s="Em Trânsito">Em Trânsito</button><button class="btn small" data-i="${i}" data-s="Entregue">Entregue</button></td></tr>`).join('')||'<tr><td colspan="4">Sem pedidos</td></tr>'}
+      </tbody></table></div>
+    </section>
+  `);
+  qsa('button[data-i]').forEach(b => b.addEventListener('click', e => { const i = +e.currentTarget.getAttribute('data-i'); const s = e.currentTarget.getAttribute('data-s'); const os = readStore(STORE_KEYS.orders, []); if (os[i]) { os[i].status = s; writeStore(STORE_KEYS.orders, os); pageAdminVendas(); }}));
+}
 
-qs('#password-form').addEventListener('close', () => {
-  // noop
-});
+function pageAdminTrocas() {
+  const list = readStore(STORE_KEYS.exchanges, []);
+  render(`
+    <section class="view">
+      <h2>Admin • Trocas</h2>
+      <div class="table-wrapper"><table class="table"><thead><tr><th>Data</th><th>Pedido</th><th>Motivo</th><th>Status</th><th class="right">Ações</th></tr></thead><tbody>
+        ${list.map((t,i)=>`<tr><td>${fmtDate(t.date)}</td><td>${t.orderId}</td><td>${t.reason}</td><td>${t.status}</td><td class="right"><button class="btn small" data-i="${i}" data-s="Autorizada">Autorizar</button><button class="btn small" data-i="${i}" data-s="Recusada">Recusar</button></td></tr>`).join('')||'<tr><td colspan="5">Sem trocas</td></tr>'}
+      </tbody></table></div>
+    </section>
+  `);
+  qsa('button[data-i]').forEach(b => b.addEventListener('click', e => { const i = +e.currentTarget.getAttribute('data-i'); const s = e.currentTarget.getAttribute('data-s'); const arr = readStore(STORE_KEYS.exchanges, []); if (arr[i]) { arr[i].status = s; writeStore(STORE_KEYS.exchanges, arr); pageAdminTrocas(); }}));
+}
 
-qs('#password-form').addEventListener('submit', e => {
+function pageAdminEstoque() {
+  const cards = readStore(STORE_KEYS.cards, []);
+  render(`
+    <section class="view">
+      <h2>Admin • Estoque</h2>
+      <div class="table-wrapper"><table class="table"><thead><tr><th>Nome</th><th>Preço</th><th>Estoque</th><th class="right">Ajuste</th></tr></thead><tbody>
+        ${cards.map((c,i)=>`<tr><td>${c.name}</td><td>${fmtCurrency(c.price)}</td><td>${c.stock}</td><td class="right"><input type="number" style="width:90px" id="adj-${i}" value="0"><button class="btn small" data-i="${i}">Aplicar</button></td></tr>`).join('')}</tbody></table></div>
+    </section>
+  `);
+  qsa('button[data-i]').forEach(b => b.addEventListener('click', e => { const i = +e.currentTarget.getAttribute('data-i'); const v = parseInt((qs(`#adj-${i}`)||{value:'0'}).value||'0',10); const arr = readStore(STORE_KEYS.cards, []); if (arr[i]) { arr[i].stock = Math.max(0, (arr[i].stock|0)+v); writeStore(STORE_KEYS.cards, arr); pageAdminEstoque(); }}));
+}
+
+function pageAdminRelatorios() {
+  const orders = readStore(STORE_KEYS.orders, []);
+  const bySet = {};
+  const cards = readStore(STORE_KEYS.cards, []);
+  orders.forEach(o => o.items.forEach(it => { const c = cards.find(x=>x.id===it.id); if (!c) return; bySet[c.set] = (bySet[c.set]||0) + (c.price*it.qty); }));
+  const rows = Object.entries(bySet).map(([set, total]) => `<tr><td>${set}</td><td>${fmtCurrency(total)}</td></tr>`).join('');
+  render(`
+    <section class="view">
+      <h2>Admin • Relatórios</h2>
+      <div class="table-wrapper"><table class="table"><thead><tr><th>Expansão</th><th>Total vendido</th></tr></thead><tbody>${rows||'<tr><td colspan="2">Sem dados</td></tr>'}</tbody></table></div>
+    </section>
+  `);
+}
+
+function pageAssistente() {
+  render(`
+    <section class="view">
+      <h2>Assistente IA</h2>
+      <div class="card">
+        <p class="muted">Olá! Sou seu assistente. Baseado nos seus pedidos, você pode gostar destas cartas:</p>
+        <div id="ai-suggestions" class="cards"></div>
+      </div>
+    </section>
+  `);
+  const orders = readStore(STORE_KEYS.orders, []);
+  const freq = new Map();
+  orders.forEach(o => o.items.forEach(it => freq.set(it.id, (freq.get(it.id)||0)+it.qty)));
+  const cards = readStore(STORE_KEYS.cards, []);
+  const sorted = cards.slice().sort((a,b) => (freq.get(b.id)||0)-(freq.get(a.id)||0)).slice(0,4);
+  const wrap = qs('#ai-suggestions');
+  wrap.innerHTML = sorted.map(c => `<div class="card"><strong>${c.name}</strong><span class="muted">${c.set} • ${c.rarity}</span><span>${fmtCurrency(c.price)}</span><button class="btn small" onclick="location.hash='#/carta/${c.id}'">Ver</button></div>`).join('') || '<span class="muted">Sem recomendações ainda.</span>';
+}
+
+// Autenticação (login/cadastro)
+// Cupons (somente listagem)
+function pageCupons() {
+  const coupons = readStore(STORE_KEYS.coupons, []).filter(function(c){ return !!c.active; });
+  render(
+    '<section class="view">'
+    + '<h2>Cupons disponíveis</h2>'
+    + '<div class="cards">'
+    + (coupons.length ? coupons.map(function(c){ return '<div class="card"><strong>'+c.code+'</strong><span class="muted">'+c.percentage+'% de desconto</span></div>'; }).join('') : '<span class="muted">Nenhum cupom no momento.</span>')
+    + '</div>'
+    + '</section>'
+  );
+}
+// expõe no escopo global por compatibilidade
+try { window.pageCupons = pageCupons; } catch {}
+
+// Autenticação (login/cadastro)
+function pageAuth() {
+  render(`
+    <section class="view">
+      <div class="grid">
+        <form class="card" id="login-form">
+          <h3>Entrar</h3>
+          <input id="lg-email" type="email" placeholder="E-mail" required>
+          <input id="lg-pass" type="password" placeholder="Senha" required>
+          <div class="form-actions"><button class="btn primary">Entrar</button></div>
+        </form>
+        <form class="card" id="signup-form">
+          <h3>Criar conta</h3>
+          <input id="su-name" placeholder="Nome" required>
+          <input id="su-email" type="email" placeholder="E-mail" required>
+          <input id="su-pass" type="password" placeholder="Senha" required>
+          <div class="form-actions"><button class="btn">Cadastrar</button></div>
+        </form>
+      </div>
+    </section>
+  `);
+  const loginForm = qs('#login-form');
+  if (loginForm) loginForm.addEventListener('submit', e => {
   e.preventDefault();
-});
-
-qs('#btn-confirm-password').addEventListener('click', (e) => {
+    const email = qs('#lg-email').value.trim().toLowerCase();
+    const pass = qs('#lg-pass').value;
+    const users = readStore(STORE_KEYS.customers, []);
+    const u = users.find(x => (x.email||'').toLowerCase() === email && x.password === pass && x.active !== false);
+    if (!u) { alert('Credenciais inválidas'); return; }
+    setSession({ userId: u.id });
+    navigate('#/catalogo');
+  });
+  const signupForm = qs('#signup-form');
+  if (signupForm) signupForm.addEventListener('submit', e => {
   e.preventDefault();
-  const pass = qs('#new-password').value;
-  const pass2 = qs('#new-password-confirm').value;
-  if (pass !== pass2) { alert('As senhas não coincidem.'); return; }
-  updateClientPartial(currentClientId, { password: pass });
-  qs('#new-password').value = '';
-  qs('#new-password-confirm').value = '';
-  passwordDialog.close();
-});
+    const name = qs('#su-name').value.trim();
+    const email = qs('#su-email').value.trim();
+    const pass = qs('#su-pass').value;
+    const users = readStore(STORE_KEYS.customers, []);
+    if (users.some(x => (x.email||'').toLowerCase() === email.toLowerCase())) { alert('E-mail já cadastrado'); return; }
+    const nu = { id: (crypto && crypto.randomUUID ? crypto.randomUUID() : String(Date.now())), name, email, password: pass, addresses: [], cards: [], active: true };
+    users.push(nu); writeStore(STORE_KEYS.customers, users);
+    setSession({ userId: nu.id });
+    navigate('#/catalogo');
+  });
+}
 
-// Header buttons on detail
-qs('#btn-edit-client').addEventListener('click', () => openForm(currentClientId));
-qs('#btn-toggle-active').addEventListener('click', () => { toggleActive(currentClientId); openDetail(currentClientId); });
+function pageNotFound() { render('<section class="view"><h2>Página não encontrada</h2></section>'); }
 
-// List view buttons
-qs('#btn-new-client').addEventListener('click', () => openForm());
-qs('#btn-apply-filters').addEventListener('click', renderList);
-qs('#btn-clear-filters').addEventListener('click', () => { qsa('#filter-form input').forEach(i => i.value = ''); qs('#filter-status').value = 'all'; renderList(); });
+// Definição de rotas
+route('/catalogo', pageCatalogo);
+route('/carrinho', pageCarrinho);
+route('/checkout', pageCheckout);
+route('/auth', pageAuth);
+route('/minha-conta', pageMinhaConta);
+route('/meus-pedidos', pageMeusPedidos);
+route('/trocas', pageTrocas);
+route('/cupons', function(ctx){ if (typeof pageCupons === 'function') { pageCupons(ctx); } else { pageNotFound(); } });
+route('/admin/cartas', pageAdminCartas);
+route('/admin/clientes', pageAdminClientes);
+route('/admin/vendas', pageAdminVendas);
+route('/admin/trocas', pageAdminTrocas);
+route('/admin/estoque', pageAdminEstoque);
+route('/admin/relatorios', pageAdminRelatorios);
+route('/assistente', pageAssistente);
 
-// Form buttons
-qs('#client-form').addEventListener('submit', handleFormSubmit);
-qs('#btn-cancel-client').addEventListener('click', () => { showView('view-list'); });
-qs('#btn-back-to-list').addEventListener('click', () => { showView('view-list'); });
-qs('#btn-back-to-list-from-detail').addEventListener('click', () => { showView('view-list'); renderList(); });
-
-// Inicializar
+// Inicialização
 initTheme();
-renderList();
+startRouter();
+updateCartNav();
+updateAuthNav();
 
-// Theme toggle button
+// Toggle de tema
 qs('#btn-toggle-theme').addEventListener('click', () => {
   const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   const next = current === 'light' ? 'dark' : 'light';
   localStorage.setItem(THEME_KEY, next);
   applyTheme(next);
 });
-
-

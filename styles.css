@@ -33,6 +33,9 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
   color: var(--text);
   background: radial-gradient(1200px 800px at 10% -10%, #0f1521 0%, #0b0d10 40%), var(--bg);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 [data-theme="light"] body,
@@ -46,16 +49,21 @@ body {
   padding: 12px 20px;
 }
 .app-header { display: flex; align-items: center; gap: 8px; }
-.app-header h1 { margin: 0; font-size: 18px; }
+.app-nav { display: flex; align-items: center; gap: 12px; width: 100%; }
+.app-nav a { color: var(--text); text-decoration: none; padding: 6px 8px; border-radius: 6px; }
+.app-nav a:hover { background: rgba(255,255,255,0.06); }
+.app-nav .brand { font-weight: 700; }
 .app-header .spacer { flex: 1; }
 [data-theme="light"] .app-header, [data-theme="light"] .app-footer { background: var(--panel); }
 .app-footer {
   border-top: 1px solid var(--border);
   border-bottom: none;
+  margin-top: auto;
 }
 .app-footer span { color: var(--muted); font-size: 12px; }
 
 .container { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
+.container { flex: 1 0 auto; }
 
 .toolbar { display: flex; gap: 8px; margin-bottom: 12px; }
 .spacer { flex: 1; }

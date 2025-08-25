@@ -3,347 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin - PokéCard Store</title>
+  <title>PokéCard Store</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:,">
+  <meta name="theme-color" content="#0b0d10">
 </head>
 <body>
   <header class="app-header">
-    <h1>Admin • Clientes</h1>
-    <div class="spacer"></div>
-    <button id="btn-toggle-theme" class="btn ghost" aria-label="Alternar tema" title="Alternar para modo claro">🌙</button>
+    <nav class="app-nav">
+      <a href="#/catalogo" class="brand">PokéCard Store</a>
+      <a href="#/catalogo">Catálogo</a>
+      <a href="#/carrinho" id="nav-cart">Carrinho</a>
+      <a href="#/meus-pedidos" id="nav-orders">Meus Pedidos</a>
+      <a href="#/cupons" id="nav-coupons">Cupons</a>
+      <a href="#/minha-conta" id="nav-account">Minha Conta</a>
+      <a href="#/auth" id="nav-login">Entrar</a>
+      <a href="#/logout" id="nav-logout">Sair</a>
+      <div class="spacer"></div>
+      <details class="nav-group">
+        <summary>Admin</summary>
+        <div class="nav-group-menu">
+          <a href="#/admin/cartas">Cartas</a>
+          <a href="#/admin/clientes">Clientes</a>
+          <a href="#/admin/vendas">Vendas</a>
+          <a href="#/admin/trocas">Trocas</a>
+          <a href="#/admin/estoque">Estoque</a>
+          <a href="#/admin/relatorios">Relatórios</a>
+        </div>
+      </details>
+      <a href="#/assistente" title="Assistente IA">🤖</a>
+      <button id="btn-toggle-theme" class="btn ghost" aria-label="Alternar tema" title="Alternar para modo claro">🌙</button>
+    </nav>
   </header>
 
   <main class="container">
-    <!-- LISTAGEM E FILTROS -->
-    <section id="view-list" class="view">
-      <div class="toolbar">
-        <button id="btn-new-client" class="btn primary">Novo Cliente</button>
-      </div>
-
-      <details class="filters" open>
-        <summary>Filtros de busca</summary>
-        <form id="filter-form" class="grid">
-          <div class="form-field">
-            <label for="filter-name">Nome</label>
-            <input type="text" id="filter-name" placeholder="Ex.: Ash Ketchum">
-          </div>
-          <div class="form-field">
-            <label for="filter-email">E-mail</label>
-            <input type="email" id="filter-email" placeholder="Ex.: ash@exemplo.com">
-          </div>
-          <div class="form-field">
-            <label for="filter-cpf">CPF</label>
-            <input type="text" id="filter-cpf" placeholder="Somente números">
-          </div>
-          <div class="form-field">
-            <label for="filter-phone">Telefone</label>
-            <input type="text" id="filter-phone" placeholder="(DDD) 99999-9999">
-          </div>
-          <div class="form-field">
-            <label for="filter-status">Status</label>
-            <select id="filter-status">
-              <option value="all">Todos</option>
-              <option value="active">Ativo</option>
-              <option value="inactive">Inativo</option>
-            </select>
-          </div>
-          <div class="form-actions">
-            <button type="button" id="btn-apply-filters" class="btn">Buscar</button>
-            <button type="button" id="btn-clear-filters" class="btn ghost">Limpar</button>
-          </div>
-        </form>
-      </details>
-
-      <div class="table-wrapper">
-        <table class="table" id="clients-table">
-          <thead>
-            <tr>
-              <th>Status</th>
-              <th>Nome</th>
-              <th>E-mail</th>
-              <th>CPF</th>
-              <th>Telefone</th>
-              <th class="right">Ações</th>
-            </tr>
-          </thead>
-          <tbody id="clients-tbody">
-            <!-- linhas renderizadas via JS -->
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- FORMULÁRIO DE CLIENTE (CADASTRAR/EDITAR) -->
-    <section id="view-form" class="view hidden">
-      <div class="view-header">
-        <button class="btn ghost" id="btn-back-to-list">← Voltar</button>
-        <h2 id="form-title">Novo Cliente</h2>
-      </div>
-      <form id="client-form" class="grid">
-        <input type="hidden" id="client-id">
-        <div class="form-field">
-          <label for="client-name">Nome completo</label>
-          <input type="text" id="client-name" required>
-        </div>
-        <div class="form-field">
-          <label for="client-email">E-mail</label>
-          <input type="email" id="client-email" required>
-        </div>
-        <div class="form-field">
-          <label for="client-cpf">CPF</label>
-          <input type="text" id="client-cpf" required>
-        </div>
-        <div class="form-field">
-          <label for="client-phone">Telefone</label>
-          <input type="text" id="client-phone" required>
-        </div>
-        <div id="password-fields" class="form-field span-2">
-          <div class="grid">
-            <div class="form-field">
-              <label for="client-password">Senha</label>
-              <input type="password" id="client-password">
-            </div>
-            <div class="form-field">
-              <label for="client-password-confirm">Confirmar senha</label>
-              <input type="password" id="client-password-confirm">
-            </div>
-          </div>
-          <small id="password-hint" class="muted"></small>
-        </div>
-        <div class="form-field">
-          <label>Status</label>
-          <label class="switch">
-            <input type="checkbox" id="client-active" checked>
-            <span>Ativo</span>
-          </label>
-        </div>
-        <div class="form-actions span-2">
-          <button type="submit" class="btn primary" id="btn-save-client">Salvar</button>
-          <button type="button" class="btn ghost" id="btn-cancel-client">Cancelar</button>
-        </div>
-      </form>
-    </section>
-
-    <!-- DETALHE DO CLIENTE (ENDEREÇOS, CARTÕES, TRANSAÇÕES) -->
-    <section id="view-detail" class="view hidden">
-      <div class="view-header">
-        <button class="btn ghost" id="btn-back-to-list-from-detail">← Voltar</button>
-        <h2 id="detail-title">Cliente</h2>
-        <div class="spacer"></div>
-        <button class="btn" id="btn-edit-client">Editar</button>
-        <button class="btn" id="btn-toggle-active"></button>
-        <button class="btn" id="btn-change-password">Alterar Senha</button>
-      </div>
-
-      <div class="detail-grid">
-        <section>
-          <h3>Dados cadastrais</h3>
-          <div class="key-values" id="detail-key-values"></div>
-        </section>
-
-        <section>
-          <div class="section-header">
-            <h3>Endereços de entrega</h3>
-            <button class="btn small" id="btn-add-address">Novo endereço</button>
-          </div>
-          <div id="addresses-list" class="cards"></div>
-          <form id="address-form" class="grid hidden">
-            <input type="hidden" id="address-id">
-            <div class="form-field">
-              <label for="address-label">Identificação</label>
-              <input type="text" id="address-label" placeholder="Ex.: Casa, Trabalho" required>
-            </div>
-            <div class="form-field">
-              <label for="address-recipient">Destinatário</label>
-              <input type="text" id="address-recipient" required>
-            </div>
-            <div class="form-field">
-              <label for="address-zip">CEP</label>
-              <input type="text" id="address-zip">
-            </div>
-            <div class="form-field">
-              <label for="address-street">Rua</label>
-              <input type="text" id="address-street" required>
-            </div>
-            <div class="form-field">
-              <label for="address-number">Número</label>
-              <input type="text" id="address-number">
-            </div>
-            <div class="form-field">
-              <label for="address-complement">Complemento</label>
-              <input type="text" id="address-complement">
-            </div>
-            <div class="form-field">
-              <label for="address-neighborhood">Bairro</label>
-              <input type="text" id="address-neighborhood">
-            </div>
-            <div class="form-field">
-              <label for="address-city">Cidade</label>
-              <input type="text" id="address-city">
-            </div>
-            <div class="form-field">
-              <label for="address-state">Estado</label>
-              <input type="text" id="address-state">
-            </div>
-            <div class="form-actions span-2">
-              <button type="submit" class="btn primary">Salvar endereço</button>
-              <button type="button" class="btn ghost" id="btn-cancel-address">Cancelar</button>
-            </div>
-          </form>
-        </section>
-
-        <section>
-          <div class="section-header">
-            <h3>Cartões de crédito</h3>
-            <button class="btn small" id="btn-add-card">Novo cartão</button>
-          </div>
-          <div id="cards-list" class="cards"></div>
-          <form id="card-form" class="grid hidden">
-            <input type="hidden" id="card-id">
-            <div class="form-field">
-              <label for="card-label">Apelido</label>
-              <input type="text" id="card-label" placeholder="Ex.: Cartão Nubank" required>
-            </div>
-            <div class="form-field">
-              <label for="card-holder">Nome impresso</label>
-              <input type="text" id="card-holder" required>
-            </div>
-            <div class="form-field">
-              <label for="card-number">Número do cartão</label>
-              <input type="text" id="card-number" required>
-            </div>
-            <div class="form-field">
-              <label for="card-expiry">Validade (MM/AA)</label>
-              <input type="text" id="card-expiry" placeholder="MM/AA" required>
-            </div>
-            <div class="form-field">
-              <label class="switch">
-                <input type="checkbox" id="card-preferred">
-                <span>Definir como preferencial</span>
-              </label>
-            </div>
-            <div class="form-actions span-2">
-              <button type="submit" class="btn primary">Salvar cartão</button>
-              <button type="button" class="btn ghost" id="btn-cancel-card">Cancelar</button>
-            </div>
-          </form>
-        </section>
-
-        <section>
-          <div class="section-header">
-            <h3>Transações</h3>
-            <button class="btn small" id="btn-add-transaction">Adicionar transação (teste)</button>
-          </div>
-          <div class="table-wrapper">
-            <table class="table" id="transactions-table">
-              <thead>
-                <tr>
-                  <th>Data</th>
-                  <th>Descrição</th>
-                  <th>Valor</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="transactions-tbody"></tbody>
-            </table>
-          </div>
-        </section>
-      </div>
-    </section>
+    <div id="app"></div>
   </main>
 
-  <!-- MODAL: ALTERAÇÃO DE SENHA -->
-  <dialog id="password-dialog">
-    <form method="dialog" id="password-form" class="grid">
-      <h3>Alterar senha</h3>
-      <div class="form-field">
-        <label for="new-password">Nova senha</label>
-        <input type="password" id="new-password" required>
-      </div>
-      <div class="form-field">
-        <label for="new-password-confirm">Confirmar nova senha</label>
-        <input type="password" id="new-password-confirm" required>
-      </div>
-      <div class="form-actions">
-        <button value="cancel" class="btn ghost">Cancelar</button>
-        <button value="confirm" class="btn primary" id="btn-confirm-password">Salvar</button>
-      </div>
-    </form>
-  </dialog>
-
   <footer class="app-footer">
-    <span>Protótipo • CRUD Clientes</span>
+    <span>Protótipo • E-commerce TCG</span>
   </footer>
 
   <script src="app.js"></script>
-  
-  <!-- Dados de demonstração (opcional) -->
-  <script>
-    // Semeia dados exemplo na primeira execução
-    (function seed() {
-      const key = 'clients';
-      const hasData = localStorage.getItem(key);
-      if (hasData) return;
-      const example = [
-        {
-          id: crypto.randomUUID(),
-          name: 'Ash Ketchum',
-          email: 'ash@kanto.example',
-          cpf: '12345678901',
-          phone: '(11) 90000-0001',
-          password: 'pikachu',
-          active: true,
-          addresses: [
-            {
-              id: crypto.randomUUID(),
-              label: 'Casa',
-              recipient: 'Ash Ketchum',
-              zip: '01000-000',
-              street: 'Rua Pallet',
-              number: '1',
-              complement: '',
-              neighborhood: 'Centro',
-              city: 'Pallet',
-              state: 'Kanto'
-            }
-          ],
-          creditCards: [
-            {
-              id: crypto.randomUUID(),
-              label: 'Nubank',
-              holder: 'ASH KETCHUM',
-              number: '4111111111111111',
-              expiry: '12/28',
-              preferred: true
-            }
-          ],
-          transactions: [
-            {
-              id: crypto.randomUUID(),
-              date: new Date().toISOString(),
-              description: 'Compra inicial',
-              amount: 199.9,
-              status: 'Pago'
-            }
-          ]
-        },
-        {
-          id: crypto.randomUUID(),
-          name: 'Misty Waterflower',
-          email: 'misty@cerulean.example',
-          cpf: '98765432100',
-          phone: '(11) 90000-0002',
-          password: 'starmie',
-          active: true,
-          addresses: [],
-          creditCards: [],
-          transactions: []
-        }
-      ];
-      localStorage.setItem(key, JSON.stringify(example));
-    })();
-  </script>
-  
 </body>
 </html>
 
