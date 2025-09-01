@@ -26,14 +26,19 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Alert,
+  Snackbar,
 } from '@mui/material';
 import {
   Search,
   Visibility,
   Email,
   Phone,
+  Add,
+  Edit,
+  Delete,
 } from '@mui/icons-material';
-import { getOrders, getCustomers } from '../../store';
+import { getOrders, getCustomers, writeStore, STORE_KEYS } from '../../store';
 import { Customer, Order } from '../../types';
 
 const ITEMS_PER_PAGE = 10;
@@ -48,6 +53,22 @@ const AdminClientes: React.FC = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  
+  // CRUD states
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+
+  // Form data
+  const [formData, setFormData] = useState<Partial<Customer>>({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    cpf: '',
+  });
 
   useEffect(() => {
     loadData();
@@ -111,6 +132,153 @@ const AdminClientes: React.FC = () => {
     setDetailsOpen(true);
   };
 
+  // CRUD Functions
+  const handleOpenDialog = (customer?: Customer) => {
+    if (customer) {
+      setEditingCustomer(customer);
+      setFormData({
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone || '',
+        address: customer.address || '',
+        cpf: customer.cpf || '',
+      });
+    } else {
+      setEditingCustomer(null);
+      setFormData({
+        name: '',
+        email: '',
+        phone: '',
+        address: '',
+        cpf: '',
+      });
+    }
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setEditingCustomer(null);
+    setFormData({
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      cpf: '',
+    });
+  };
+
+  const handleSaveCustomer = () => {
+    if (!formData.name || !formData.email) {
+      setSnackbar({
+        open: true,
+        message: 'Nome e email são obrigatórios!',
+        severity: 'error'
+      });
+      return;
+    }
+
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setSnackbar({
+        open: true,
+        message: 'Email inválido!',
+        severity: 'error'
+      });
+      return;
+    }
+
+    // Validar CPF (formato básico)
+    if (formData.cpf && !/^\d{11}$/.test(formData.cpf.replace(/\D/g, ''))) {
+      setSnackbar({
+        open: true,
+        message: 'CPF deve ter 11 dígitos!',
+        severity: 'error'
+      });
+      return;
+    }
+
+    const allCustomers = getCustomers();
+    
+    if (editingCustomer) {
+      // Editar cliente existente
+      const updatedCustomer: Customer = {
+        ...editingCustomer,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        cpf: formData.cpf,
+      };
+
+      const updatedCustomers = allCustomers.map(customer =>
+        customer.id === editingCustomer.id ? updatedCustomer : customer
+      );
+
+      writeStore(STORE_KEYS.customers, updatedCustomers);
+      setSnackbar({
+        open: true,
+        message: 'Cliente atualizado com sucesso!',
+        severity: 'success'
+      });
+    } else {
+      // Criar novo cliente
+      const newCustomer: Customer = {
+        id: Date.now().toString(),
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        cpf: formData.cpf,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedCustomers = [...allCustomers, newCustomer];
+      writeStore(STORE_KEYS.customers, updatedCustomers);
+      setSnackbar({
+        open: true,
+        message: 'Cliente criado com sucesso!',
+        severity: 'success'
+      });
+    }
+
+    loadData();
+    handleCloseDialog();
+  };
+
+  const handleDeleteCustomer = (customerId: string) => {
+    setCustomerToDelete(customerId);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteCustomer = () => {
+    if (customerToDelete) {
+      const allCustomers = getCustomers();
+      const updatedCustomers = allCustomers.filter(customer => customer.id !== customerToDelete);
+      writeStore(STORE_KEYS.customers, updatedCustomers);
+      
+      setSnackbar({
+        open: true,
+        message: 'Cliente excluído com sucesso!',
+        severity: 'success'
+      });
+      
+      loadData();
+    }
+    setDeleteConfirmOpen(false);
+    setCustomerToDelete(null);
+  };
+
+  const formatCPF = (cpf: string) => {
+    const cleaned = cpf.replace(/\D/g, '');
+    const match = cleaned.match(/^(\d{3})(\d{3})(\d{3})(\d{2})$/);
+    if (match) {
+      return `${match[1]}.${match[2]}.${match[3]}-${match[4]}`;
+    }
+    return cpf;
+  };
+
   const getStatusColor = (isActive: boolean) => {
     return isActive ? 'success' : 'default';
   };
@@ -130,9 +298,18 @@ const AdminClientes: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Gerenciar Clientes
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" component="h1">
+          Gerenciar Clientes
+        </Typography>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => handleOpenDialog()}
+        >
+          Novo Cliente
+        </Button>
+      </Box>
 
       {/* Estatísticas */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -307,6 +484,21 @@ const AdminClientes: React.FC = () => {
                     >
                       <Visibility />
                     </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleOpenDialog(customer)}
+                      title="Editar Cliente"
+                    >
+                      <Edit />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      onClick={() => handleDeleteCustomer(customer.id)}
+                      title="Excluir Cliente"
+                      color="error"
+                    >
+                      <Delete />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               );
@@ -324,6 +516,94 @@ const AdminClientes: React.FC = () => {
           color="primary"
         />
       </Box>
+
+      {/* Dialog de Criar/Editar Cliente */}
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Nome Completo"
+                value={formData.name || ''}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Email"
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Telefone"
+                value={formData.phone || ''}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="(11) 99999-9999"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="CPF"
+                value={formData.cpf || ''}
+                onChange={(e) => {
+                  const cleaned = e.target.value.replace(/\D/g, '');
+                  setFormData({ ...formData, cpf: cleaned });
+                }}
+                placeholder="000.000.000-00"
+                inputProps={{ maxLength: 11 }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Endereço"
+                multiline
+                rows={2}
+                value={formData.address || ''}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="Rua, número, bairro, cidade, estado"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancelar</Button>
+          <Button 
+            onClick={handleSaveCustomer} 
+            variant="contained"
+          >
+            {editingCustomer ? 'Atualizar' : 'Criar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+        <DialogTitle>Confirmar Exclusão</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
+          <Button onClick={confirmDeleteCustomer} color="error" variant="contained">
+            Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Dialog de Detalhes do Cliente */}
       <Dialog open={detailsOpen} onClose={() => setDetailsOpen(false)} maxWidth="md" fullWidth>
@@ -346,7 +626,12 @@ const AdminClientes: React.FC = () => {
                         {selectedCustomer.phone && (
                           <Typography><strong>Telefone:</strong> {selectedCustomer.phone}</Typography>
                         )}
-                        <Typography><strong>CPF:</strong> {selectedCustomer.cpf}</Typography>
+                        {selectedCustomer.cpf && (
+                          <Typography><strong>CPF:</strong> {formatCPF(selectedCustomer.cpf)}</Typography>
+                        )}
+                        {selectedCustomer.address && (
+                          <Typography><strong>Endereço:</strong> {selectedCustomer.address}</Typography>
+                        )}
                       </Box>
                     </CardContent>
                   </Card>
@@ -410,6 +695,21 @@ const AdminClientes: React.FC = () => {
           <Button onClick={() => setDetailsOpen(false)}>Fechar</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar para Feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
