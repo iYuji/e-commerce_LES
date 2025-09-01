@@ -19,8 +19,9 @@ import {
   SmartToy,
   AdminPanelSettings,
 } from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { getCart, getSession } from '../store/index';
+import { useTheme } from '../contexts/ThemeContext';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,11 +29,10 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { isDarkMode, toggleTheme } = useTheme();
   const [cartCount, setCartCount] = useState(0);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [adminMenuAnchor, setAdminMenuAnchor] = useState<null | HTMLElement>(null);
-  const [isDarkMode, setIsDarkMode] = useState(true);
 
   useEffect(() => {
     const updateCartCount = () => {
@@ -72,11 +72,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleAdminMenuItemClick = (path: string) => {
     navigate(path);
     handleAdminMenuClose();
-  };
-
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    // Here you would implement theme switching logic
   };
 
   return (

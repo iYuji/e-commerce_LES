@@ -18,13 +18,25 @@ export interface CartItem {
 
 export interface Order {
   id: string;
-  userId: string;
+  customerId: string;
   items: CartItem[];
   total: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  status: OrderStatus;
+  shippingAddress: {
+    firstName: string;
+    lastName: string;
+    address: string;
+    city: string;
+    state: string;
+    zipCode: string;
+    phone: string;
+  };
+  paymentMethod: 'credit' | 'debit' | 'pix' | 'boleto';
   createdAt: string;
-  updatedAt: string;
+  estimatedDelivery?: string;
 }
+
+export type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
 
 export interface Customer {
   id: string;
@@ -32,6 +44,7 @@ export interface Customer {
   email: string;
   phone?: string;
   address?: string;
+  cpf?: string;
   createdAt: string;
 }
 
@@ -47,8 +60,12 @@ export interface Coupon {
 export interface Exchange {
   id: string;
   userId: string;
+  customerId: string;
   orderId: string;
+  offeredCardId: string;
+  requestedCardId: string;
   reason: string;
+  notes?: string;
   status: 'pending' | 'approved' | 'rejected' | 'completed';
   createdAt: string;
 }

@@ -12,11 +12,29 @@ import {
   Chip,
   Snackbar,
   Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  Slider,
+  Switch,
+  FormControlLabel,
+  Pagination,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
-import { ShoppingCart } from '@mui/icons-material';
+import { 
+  ShoppingCart, 
+  ViewList, 
+  ViewModule, 
+  Favorite,
+  FavoriteBorder,
+  FilterList 
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { getCards, addToCart } from '../store';
 import { Card as CardType } from '../types';
+
+const ITEMS_PER_PAGE = 12;
 
 const Catalogo: React.FC = () => {
   const navigate = useNavigate();
@@ -25,17 +43,33 @@ const Catalogo: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [rarityFilter, setRarityFilter] = useState('');
+  const [priceRange, setPriceRange] = useState<number[]>([0, 300]);
+  const [sortBy, setSortBy] = useState('name');
+  const [showOnlyInStock, setShowOnlyInStock] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
 
   useEffect(() => {
     const loadedCards = getCards();
     setCards(loadedCards);
     setFilteredCards(loadedCards);
+    
+    // Calcular range de preços automático
+    if (loadedCards.length > 0) {
+      const prices = loadedCards.map(card => card.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      setPriceRange([minPrice, maxPrice]);
+    }
   }, []);
 
   useEffect(() => {
     let filtered = cards;
 
+    // Filtro por texto
     if (searchTerm) {
       filtered = filtered.filter((card: CardType) =>
         card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,19 +77,67 @@ const Catalogo: React.FC = () => {
       );
     }
 
+    // Filtro por tipo
     if (typeFilter) {
       filtered = filtered.filter((card: CardType) => card.type === typeFilter);
     }
 
+    // Filtro por raridade
     if (rarityFilter) {
       filtered = filtered.filter((card: CardType) => card.rarity === rarityFilter);
     }
 
-    setFilteredCards(filtered);
-  }, [cards, searchTerm, typeFilter, rarityFilter]);
+    // Filtro por preço
+    filtered = filtered.filter((card: CardType) => 
+      card.price >= priceRange[0] && card.price <= priceRange[1]
+    );
 
-  const handleAddToCart = (card: CardType) => {
+    // Filtro por estoque
+    if (showOnlyInStock) {
+      filtered = filtered.filter((card: CardType) => card.stock > 0);
+    }
+
+    // Ordenação
+    filtered = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'price-low':
+          return a.price - b.price;
+        case 'price-high':
+          return b.price - a.price;
+        case 'rarity':
+          const rarityOrder = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
+          return rarityOrder.indexOf(a.rarity) - rarityOrder.indexOf(b.rarity);
+        case 'stock':
+          return b.stock - a.stock;
+        default:
+          return 0;
+      }
+    });
+
+    setFilteredCards(filtered);
+    setCurrentPage(1);
+  }, [cards, searchTerm, typeFilter, rarityFilter, priceRange, sortBy, showOnlyInStock]);
+
+  const handleAddToCart = (card: CardType, event: React.MouseEvent) => {
+    event.stopPropagation();
     addToCart(card, 1);
+    setSnackbarMessage(`${card.name} adicionado ao carrinho!`);
+    setSnackbarOpen(true);
+  };
+
+  const toggleFavorite = (cardId: string, event: React.MouseEvent) => {
+    event.stopPropagation();
+    const newFavorites = new Set(favorites);
+    if (newFavorites.has(cardId)) {
+      newFavorites.delete(cardId);
+      setSnackbarMessage('Removido dos favoritos');
+    } else {
+      newFavorites.add(cardId);
+      setSnackbarMessage('Adicionado aos favoritos');
+    }
+    setFavorites(newFavorites);
     setSnackbarOpen(true);
   };
 
@@ -74,91 +156,257 @@ const Catalogo: React.FC = () => {
     }
   };
 
+  const getTypeColor = (type: string) => {
+    const typeColors: Record<string, string> = {
+      fire: '#FF6B6B',
+      water: '#4ECDC4',
+      grass: '#95E1D3',
+      electric: '#FFD93D',
+      psychic: '#DA70D6',
+      fighting: '#CD853F',
+      ghost: '#9370DB',
+      dragon: '#FF8C00',
+      normal: '#A8A8A8'
+    };
+    return typeColors[type.toLowerCase()] || '#A8A8A8';
+  };
+
+  // Paginação
+  const totalPages = Math.ceil(filteredCards.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const currentCards = filteredCards.slice(startIndex, endIndex);
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setTypeFilter('');
+    setRarityFilter('');
+    setSortBy('name');
+    setShowOnlyInStock(false);
+    const prices = cards.map(card => card.price);
+    setPriceRange([Math.min(...prices), Math.max(...prices)]);
+  };
+
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Catálogo de Cartas
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4" component="h1">
+          Catálogo de Cartas
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Tooltip title="Visualização em Grade">
+            <IconButton 
+              onClick={() => setViewMode('grid')}
+              color={viewMode === 'grid' ? 'primary' : 'default'}
+            >
+              <ViewModule />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Visualização em Lista">
+            <IconButton 
+              onClick={() => setViewMode('list')}
+              color={viewMode === 'list' ? 'primary' : 'default'}
+            >
+              <ViewList />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Box>
 
-      {/* Filters */}
-      <Box sx={{ mb: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-        <TextField
-          label="Buscar cartas..."
-          variant="outlined"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          sx={{ minWidth: 200 }}
-        />
-        <TextField
-          select
-          label="Tipo"
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          sx={{ minWidth: 120 }}
-        >
-          <MenuItem value="">Todos</MenuItem>
-          {getUniqueValues('type').map((type: any) => (
-            <MenuItem key={type} value={type}>
-              {type}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          label="Raridade"
-          value={rarityFilter}
-          onChange={(e) => setRarityFilter(e.target.value)}
-          sx={{ minWidth: 120 }}
-        >
-          <MenuItem value="">Todas</MenuItem>
-          {getUniqueValues('rarity').map((rarity: any) => (
-            <MenuItem key={rarity} value={rarity}>
-              {rarity}
-            </MenuItem>
-          ))}
-        </TextField>
+      {/* Filtros */}
+      <Card sx={{ mb: 3, p: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <FilterList />
+          <Typography variant="h6">Filtros</Typography>
+          <Button size="small" onClick={clearFilters}>
+            Limpar Filtros
+          </Button>
+        </Box>
+        
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              label="Buscar cartas..."
+              variant="outlined"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+            />
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Tipo</InputLabel>
+              <Select
+                value={typeFilter}
+                label="Tipo"
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <MenuItem value="">Todos</MenuItem>
+                {getUniqueValues('type').map((type: any) => (
+                  <MenuItem key={type} value={type}>
+                    {type}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Raridade</InputLabel>
+              <Select
+                value={rarityFilter}
+                label="Raridade"
+                onChange={(e) => setRarityFilter(e.target.value)}
+              >
+                <MenuItem value="">Todas</MenuItem>
+                {getUniqueValues('rarity').map((rarity: any) => (
+                  <MenuItem key={rarity} value={rarity}>
+                    {rarity}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Ordenar por</InputLabel>
+              <Select
+                value={sortBy}
+                label="Ordenar por"
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <MenuItem value="name">Nome</MenuItem>
+                <MenuItem value="price-low">Menor Preço</MenuItem>
+                <MenuItem value="price-high">Maior Preço</MenuItem>
+                <MenuItem value="rarity">Raridade</MenuItem>
+                <MenuItem value="stock">Estoque</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showOnlyInStock}
+                  onChange={(e) => setShowOnlyInStock(e.target.checked)}
+                />
+              }
+              label="Apenas em estoque"
+            />
+          </Grid>
+          
+          <Grid item xs={12} md={1}>
+            <Typography variant="body2" gutterBottom>
+              Preço: R$ {priceRange[0]} - R$ {priceRange[1]}
+            </Typography>
+            <Slider
+              value={priceRange}
+              onChange={(_, newValue) => setPriceRange(newValue as number[])}
+              valueLabelDisplay="auto"
+              min={0}
+              max={300}
+              step={5}
+            />
+          </Grid>
+        </Grid>
+      </Card>
+
+      {/* Resultados */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="body1" color="text.secondary">
+          {filteredCards.length} carta(s) encontrada(s)
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Página {currentPage} de {totalPages}
+        </Typography>
       </Box>
 
       {/* Cards Grid */}
       <Grid container spacing={3}>
-        {filteredCards.map((card: CardType) => (
-          <Grid item xs={12} sm={6} md={4} lg={3} key={card.id}>
+        {currentCards.map((card: CardType) => (
+          <Grid 
+            item 
+            xs={12} 
+            sm={viewMode === 'grid' ? 6 : 12} 
+            md={viewMode === 'grid' ? 4 : 12} 
+            lg={viewMode === 'grid' ? 3 : 12} 
+            key={card.id}
+          >
             <Card 
               sx={{ 
                 height: '100%', 
                 display: 'flex', 
-                flexDirection: 'column',
+                flexDirection: viewMode === 'grid' ? 'column' : 'row',
                 cursor: 'pointer',
-                transition: 'transform 0.2s',
+                transition: 'all 0.3s ease',
+                position: 'relative',
                 '&:hover': {
                   transform: 'translateY(-4px)',
+                  boxShadow: 4,
                 }
               }}
               onClick={() => navigate(`/card/${card.id}`)}
             >
+              {/* Botão de favorito */}
+              <IconButton
+                sx={{
+                  position: 'absolute',
+                  top: 8,
+                  right: 8,
+                  zIndex: 1,
+                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 1)',
+                  }
+                }}
+                onClick={(e) => toggleFavorite(card.id, e)}
+                color={favorites.has(card.id) ? 'error' : 'default'}
+              >
+                {favorites.has(card.id) ? <Favorite /> : <FavoriteBorder />}
+              </IconButton>
+
               <CardMedia
                 component="div"
                 sx={{
-                  height: 200,
-                  backgroundColor: 'grey.300',
+                  width: viewMode === 'grid' ? '100%' : 200,
+                  height: viewMode === 'grid' ? 250 : 150,
+                  backgroundImage: card.image ? `url(${card.image})` : undefined,
+                  backgroundSize: 'contain',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center',
+                  backgroundColor: card.image ? 'transparent' : 'grey.200',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  flexShrink: 0,
                 }}
               >
-                <Typography variant="h6" color="text.secondary">
-                  {card.name}
-                </Typography>
+                {!card.image && (
+                  <Typography variant="h6" color="text.secondary">
+                    {card.name}
+                  </Typography>
+                )}
               </CardMedia>
-              <CardContent sx={{ flexGrow: 1 }}>
+              
+              <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                 <Typography gutterBottom variant="h6" component="h2">
                   {card.name}
                 </Typography>
-                <Box sx={{ mb: 1 }}>
+                
+                <Box sx={{ mb: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                   <Chip 
                     label={card.type} 
                     size="small" 
-                    sx={{ mr: 1 }} 
+                    sx={{ 
+                      backgroundColor: getTypeColor(card.type),
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}
                   />
                   <Chip 
                     label={card.rarity} 
@@ -166,42 +414,76 @@ const Catalogo: React.FC = () => {
                     color={getRarityColor(card.rarity) as any}
                   />
                 </Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    mb: 2, 
+                    flexGrow: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}
+                >
                   {card.description}
                 </Typography>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h6" color="primary">
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6" color="primary" fontWeight="bold">
                     R$ {card.price.toFixed(2)}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Estoque: {card.stock}
+                  <Typography 
+                    variant="body2" 
+                    color={card.stock > 0 ? 'text.secondary' : 'error.main'}
+                  >
+                    {card.stock > 0 ? `Estoque: ${card.stock}` : 'Fora de estoque'}
                   </Typography>
                 </Box>
-              </CardContent>
-              <Box sx={{ p: 2, pt: 0 }}>
+                
                 <Button
                   fullWidth
                   variant="contained"
                   startIcon={<ShoppingCart />}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddToCart(card);
-                  }}
+                  onClick={(e) => handleAddToCart(card, e)}
                   disabled={card.stock === 0}
+                  size="small"
                 >
                   {card.stock === 0 ? 'Sem Estoque' : 'Adicionar ao Carrinho'}
                 </Button>
-              </Box>
+              </CardContent>
             </Card>
           </Grid>
         ))}
       </Grid>
 
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={(_, page) => setCurrentPage(page)}
+            color="primary"
+            size="large"
+          />
+        </Box>
+      )}
+
+      {/* Mensagem quando não há resultados */}
       {filteredCards.length === 0 && (
-        <Box sx={{ textAlign: 'center', mt: 4 }}>
-          <Typography variant="h6" color="text.secondary">
+        <Box sx={{ textAlign: 'center', mt: 4, py: 4 }}>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
             Nenhuma carta encontrada
           </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Tente ajustar os filtros ou buscar por outros termos
+          </Typography>
+          <Button variant="outlined" onClick={clearFilters}>
+            Limpar Filtros
+          </Button>
         </Box>
       )}
 
@@ -211,7 +493,7 @@ const Catalogo: React.FC = () => {
         onClose={() => setSnackbarOpen(false)}
       >
         <Alert severity="success" onClose={() => setSnackbarOpen(false)}>
-          Carta adicionada ao carrinho!
+          {snackbarMessage}
         </Alert>
       </Snackbar>
     </Box>
