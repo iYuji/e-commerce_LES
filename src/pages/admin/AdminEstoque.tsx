@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -28,7 +28,7 @@ import {
   MenuItem,
   Alert,
   Snackbar,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Search,
   Edit,
@@ -36,9 +36,9 @@ import {
   TrendingDown,
   Inventory,
   AttachMoney,
-} from '@mui/icons-material';
-import { getCards, writeStore, STORE_KEYS } from '../../store';
-import { Card as CardType } from '../../types';
+} from "@mui/icons-material";
+import * as Store from "../../store/index";
+import { Card as CardType } from "../../types";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -46,13 +46,17 @@ const AdminEstoque: React.FC = () => {
   const [cards, setCards] = useState<CardType[]>([]);
   const [filteredCards, setFilteredCards] = useState<CardType[]>([]);
   const [page, setPage] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [stockFilter, setStockFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [stockFilter, setStockFilter] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
   const [selectedCard, setSelectedCard] = useState<CardType | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [newStock, setNewStock] = useState(0);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
 
   useEffect(() => {
     loadCards();
@@ -63,7 +67,7 @@ const AdminEstoque: React.FC = () => {
   }, [cards, searchTerm, stockFilter, typeFilter]);
 
   const loadCards = () => {
-    const loadedCards = getCards();
+    const loadedCards = Store.getCards();
     setCards(loadedCards);
   };
 
@@ -71,22 +75,23 @@ const AdminEstoque: React.FC = () => {
     let filtered = cards;
 
     if (searchTerm) {
-      filtered = filtered.filter(card =>
-        card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        card.type.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (card) =>
+          card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          card.type.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    if (stockFilter === 'low') {
-      filtered = filtered.filter(card => card.stock <= 5 && card.stock > 0);
-    } else if (stockFilter === 'out') {
-      filtered = filtered.filter(card => card.stock === 0);
-    } else if (stockFilter === 'available') {
-      filtered = filtered.filter(card => card.stock > 5);
+    if (stockFilter === "low") {
+      filtered = filtered.filter((card) => card.stock <= 5 && card.stock > 0);
+    } else if (stockFilter === "out") {
+      filtered = filtered.filter((card) => card.stock === 0);
+    } else if (stockFilter === "available") {
+      filtered = filtered.filter((card) => card.stock > 5);
     }
 
     if (typeFilter) {
-      filtered = filtered.filter(card => card.type === typeFilter);
+      filtered = filtered.filter((card) => card.type === typeFilter);
     }
 
     setFilteredCards(filtered);
@@ -101,35 +106,54 @@ const AdminEstoque: React.FC = () => {
 
   const handleSaveStock = () => {
     if (selectedCard && newStock >= 0) {
-      const updatedCards = cards.map(card =>
+      const updatedCards = cards.map((card) =>
         card.id === selectedCard.id ? { ...card, stock: newStock } : card
       );
       setCards(updatedCards);
-      writeStore(STORE_KEYS.cards, updatedCards);
+      Store.writeStore(Store.STORE_KEYS.cards, updatedCards);
       setEditDialogOpen(false);
       setSnackbar({
         open: true,
-        message: 'Estoque atualizado com sucesso!',
-        severity: 'success'
+        message: "Estoque atualizado com sucesso!",
+        severity: "success",
       });
     }
   };
 
   const getStockStatus = (stock: number) => {
-    if (stock === 0) return { label: 'Sem Estoque', color: 'error' as const, icon: <Warning /> };
-    if (stock <= 5) return { label: 'Estoque Baixo', color: 'warning' as const, icon: <TrendingDown /> };
-    return { label: 'Em Estoque', color: 'success' as const, icon: <Inventory /> };
+    if (stock === 0)
+      return {
+        label: "Sem Estoque",
+        color: "error" as const,
+        icon: <Warning />,
+      };
+    if (stock <= 5)
+      return {
+        label: "Estoque Baixo",
+        color: "warning" as const,
+        icon: <TrendingDown />,
+      };
+    return {
+      label: "Em Estoque",
+      color: "success" as const,
+      icon: <Inventory />,
+    };
   };
 
   const getUniqueTypes = () => {
-    return Array.from(new Set(cards.map(card => card.type))).filter(Boolean);
+    return Array.from(new Set(cards.map((card) => card.type))).filter(Boolean);
   };
 
   const calculateStats = () => {
     const totalItems = cards.length;
-    const totalValue = cards.reduce((sum, card) => sum + (card.price * card.stock), 0);
-    const lowStockItems = cards.filter(card => card.stock <= 5 && card.stock > 0).length;
-    const outOfStockItems = cards.filter(card => card.stock === 0).length;
+    const totalValue = cards.reduce(
+      (sum, card) => sum + card.price * card.stock,
+      0
+    );
+    const lowStockItems = cards.filter(
+      (card) => card.stock <= 5 && card.stock > 0
+    ).length;
+    const outOfStockItems = cards.filter((card) => card.stock === 0).length;
     const totalUnits = cards.reduce((sum, card) => sum + card.stock, 0);
 
     return {
@@ -137,12 +161,15 @@ const AdminEstoque: React.FC = () => {
       totalValue,
       lowStockItems,
       outOfStockItems,
-      totalUnits
+      totalUnits,
     };
   };
 
   const stats = calculateStats();
-  const paginatedCards = filteredCards.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
+  const paginatedCards = filteredCards.slice(
+    page * ITEMS_PER_PAGE,
+    (page + 1) * ITEMS_PER_PAGE
+  );
 
   return (
     <Box>
@@ -155,14 +182,18 @@ const AdminEstoque: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Total de Produtos
                   </Typography>
-                  <Typography variant="h5">
-                    {stats.totalItems}
-                  </Typography>
+                  <Typography variant="h5">{stats.totalItems}</Typography>
                 </Box>
                 <Inventory color="primary" />
               </Box>
@@ -172,7 +203,13 @@ const AdminEstoque: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Valor Total do Estoque
@@ -189,7 +226,13 @@ const AdminEstoque: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Estoque Baixo
@@ -206,7 +249,13 @@ const AdminEstoque: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Sem Estoque
@@ -230,7 +279,8 @@ const AdminEstoque: React.FC = () => {
       )}
       {stats.lowStockItems > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Cuidado! {stats.lowStockItems} produto(s) com estoque baixo (≤ 5 unidades).
+          Cuidado! {stats.lowStockItems} produto(s) com estoque baixo (≤ 5
+          unidades).
         </Alert>
       )}
 
@@ -244,7 +294,9 @@ const AdminEstoque: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
-                startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+                startAdornment: (
+                  <Search sx={{ mr: 1, color: "text.secondary" }} />
+                ),
               }}
             />
           </Grid>
@@ -285,9 +337,9 @@ const AdminEstoque: React.FC = () => {
               fullWidth
               variant="outlined"
               onClick={() => {
-                setSearchTerm('');
-                setStockFilter('');
-                setTypeFilter('');
+                setSearchTerm("");
+                setStockFilter("");
+                setTypeFilter("");
               }}
             >
               Limpar
@@ -317,7 +369,7 @@ const AdminEstoque: React.FC = () => {
               return (
                 <TableRow key={card.id} hover>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                       <Avatar
                         src={card.image}
                         variant="rounded"
@@ -339,10 +391,12 @@ const AdminEstoque: React.FC = () => {
                     <Chip label={card.type} size="small" />
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={card.rarity} 
-                      size="small" 
-                      color={card.rarity === 'Legendary' ? 'warning' : 'default'}
+                    <Chip
+                      label={card.rarity}
+                      size="small"
+                      color={
+                        card.rarity === "Legendary" ? "warning" : "default"
+                      }
                     />
                   </TableCell>
                   <TableCell align="right">
@@ -351,24 +405,34 @@ const AdminEstoque: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <Typography 
-                      variant="body2" 
+                    <Typography
+                      variant="body2"
                       fontWeight="bold"
-                      color={card.stock === 0 ? 'error' : card.stock <= 5 ? 'warning.main' : 'text.primary'}
+                      color={
+                        card.stock === 0
+                          ? "error"
+                          : card.stock <= 5
+                          ? "warning.main"
+                          : "text.primary"
+                      }
                     >
                       {card.stock}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={status.label} 
-                      size="small" 
+                    <Chip
+                      label={status.label}
+                      size="small"
                       color={status.color}
                       icon={status.icon}
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Typography variant="body2" fontWeight="bold" color="primary">
+                    <Typography
+                      variant="body2"
+                      fontWeight="bold"
+                      color="primary"
+                    >
                       R$ {(card.price * card.stock).toFixed(2)}
                     </Typography>
                   </TableCell>
@@ -389,7 +453,7 @@ const AdminEstoque: React.FC = () => {
       </TableContainer>
 
       {/* Paginação */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
         <Pagination
           count={Math.ceil(filteredCards.length / ITEMS_PER_PAGE)}
           page={page + 1}
@@ -399,10 +463,13 @@ const AdminEstoque: React.FC = () => {
       </Box>
 
       {/* Dialog de Editar Estoque */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          Atualizar Estoque
-        </DialogTitle>
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => setEditDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Atualizar Estoque</DialogTitle>
         <DialogContent>
           {selectedCard && (
             <Box sx={{ mt: 2 }}>
@@ -441,8 +508,8 @@ const AdminEstoque: React.FC = () => {
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
         >
           {snackbar.message}

@@ -143,34 +143,6 @@ export function addOrder(order: Omit<Order, "id">): string {
   return newOrder.id;
 }
 
-// Theme functions
-export function getTheme(): "light" | "dark" {
-  try {
-    return readStore(THEME_KEY, "light") as "light" | "dark";
-  } catch {
-    return "light";
-  }
-}
-
-export function setTheme(theme: "light" | "dark"): void {
-  try {
-    writeStore(THEME_KEY, theme);
-    window.dispatchEvent(new CustomEvent("theme:change"));
-  } catch (error) {
-    console.error("Error setting theme:", error);
-  }
-}
-
-export function toggleTheme(): void {
-  try {
-    const currentTheme = getTheme();
-    const newTheme = currentTheme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-  } catch (error) {
-    console.error("Error toggling theme:", error);
-  }
-}
-
 // Seed data
 export function ensureSeed(): void {
   if (getCards().length === 0) {
@@ -183,7 +155,7 @@ export function ensureSeed(): void {
         price: 10.99,
         stock: 50,
         description: "Mouse Pokémon elétrico muito popular",
-        image: "https://images.pokemontcg.io/base1/58_hires.png",
+        image: "https://images.pokemontcg.io/xy1/42_hires.png",
       },
       {
         id: "2",
@@ -204,96 +176,6 @@ export function ensureSeed(): void {
         stock: 8,
         description: "Pokémon tartaruga de água poderoso",
         image: "https://images.pokemontcg.io/base1/2_hires.png",
-      },
-      {
-        id: "4",
-        name: "Venusaur",
-        type: "Grass",
-        rarity: "Rare",
-        price: 85.99,
-        stock: 6,
-        description: "Pokémon planta gigante",
-        image: "https://images.pokemontcg.io/base1/15_hires.png",
-      },
-      {
-        id: "5",
-        name: "Gyarados",
-        type: "Water",
-        rarity: "Uncommon",
-        price: 45.99,
-        stock: 12,
-        description: "Pokémon serpente aquática feroz",
-        image: "https://images.pokemontcg.io/base1/6_hires.png",
-      },
-      {
-        id: "6",
-        name: "Alakazam",
-        type: "Psychic",
-        rarity: "Rare",
-        price: 65.99,
-        stock: 7,
-        description: "Pokémon psíquico com poderes mentais",
-        image: "https://images.pokemontcg.io/base1/1_hires.png",
-      },
-      {
-        id: "7",
-        name: "Machamp",
-        type: "Fighting",
-        rarity: "Uncommon",
-        price: 35.99,
-        stock: 15,
-        description: "Pokémon lutador com quatro braços",
-        image: "https://images.pokemontcg.io/base1/8_hires.png",
-      },
-      {
-        id: "8",
-        name: "Gengar",
-        type: "Ghost",
-        rarity: "Rare",
-        price: 75.99,
-        stock: 9,
-        description: "Pokémon fantasma travesso",
-        image: "https://images.pokemontcg.io/fossil/5_hires.png",
-      },
-      {
-        id: "9",
-        name: "Dragonite",
-        type: "Dragon",
-        rarity: "Ultra Rare",
-        price: 150.99,
-        stock: 3,
-        description: "Pokémon dragão gentil e poderoso",
-        image: "https://images.pokemontcg.io/fossil/4_hires.png",
-      },
-      {
-        id: "10",
-        name: "Eevee",
-        type: "Normal",
-        rarity: "Common",
-        price: 15.99,
-        stock: 25,
-        description: "Pokémon evolução versátil",
-        image: "https://images.pokemontcg.io/jungle/51_hires.png",
-      },
-      {
-        id: "11",
-        name: "Snorlax",
-        type: "Normal",
-        rarity: "Uncommon",
-        price: 40.99,
-        stock: 10,
-        description: "Pokémon dorminhoco gigante",
-        image: "https://images.pokemontcg.io/jungle/11_hires.png",
-      },
-      {
-        id: "12",
-        name: "Mewtwo",
-        type: "Psychic",
-        rarity: "Ultra Rare",
-        price: 199.99,
-        stock: 2,
-        description: "Pokémon psíquico lendário criado em laboratório",
-        image: "https://images.pokemontcg.io/base1/10_hires.png",
       },
     ];
     writeStore(STORE_KEYS.cards, sampleCards);

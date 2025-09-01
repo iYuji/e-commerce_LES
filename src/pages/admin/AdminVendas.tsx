@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -24,16 +24,16 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Visibility,
   GetApp,
   TrendingUp,
   TrendingDown,
   Timeline,
-} from '@mui/icons-material';
-import { getOrders, getCards, getCustomers } from '../../store';
-import { Order, Card as CardType, Customer } from '../../types';
+} from "@mui/icons-material";
+import * as Store from "../../store/index";
+import { Order, Card as CardType, Customer } from "../../types";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -43,8 +43,8 @@ const AdminVendas: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [page, setPage] = useState(0);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [periodFilter, setPeriodFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState("");
+  const [periodFilter, setPeriodFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -57,9 +57,9 @@ const AdminVendas: React.FC = () => {
   }, [orders, statusFilter, periodFilter]);
 
   const loadData = () => {
-    const loadedOrders = getOrders();
-    const loadedCards = getCards();
-    const loadedCustomers = getCustomers();
+    const loadedOrders = Store.getOrders();
+    const loadedCards = Store.getCards();
+    const loadedCustomers = Store.getCustomers();
     setOrders(loadedOrders);
     setCards(loadedCards);
     setCustomers(loadedCustomers);
@@ -69,33 +69,33 @@ const AdminVendas: React.FC = () => {
     let filtered = orders;
 
     if (statusFilter) {
-      filtered = filtered.filter(order => order.status === statusFilter);
+      filtered = filtered.filter((order) => order.status === statusFilter);
     }
 
-    if (periodFilter !== 'all') {
+    if (periodFilter !== "all") {
       const now = new Date();
       const filterDate = new Date();
 
       switch (periodFilter) {
-        case 'today':
+        case "today":
           filterDate.setHours(0, 0, 0, 0);
           break;
-        case 'week':
+        case "week":
           filterDate.setDate(now.getDate() - 7);
           break;
-        case 'month':
+        case "month":
           filterDate.setMonth(now.getMonth() - 1);
           break;
-        case 'quarter':
+        case "quarter":
           filterDate.setMonth(now.getMonth() - 3);
           break;
-        case 'year':
+        case "year":
           filterDate.setFullYear(now.getFullYear() - 1);
           break;
       }
 
-      filtered = filtered.filter(order => 
-        new Date(order.createdAt) >= filterDate
+      filtered = filtered.filter(
+        (order) => new Date(order.createdAt) >= filterDate
       );
     }
 
@@ -104,30 +104,37 @@ const AdminVendas: React.FC = () => {
   };
 
   const getCustomerName = (customerId: string) => {
-    const customer = customers.find(c => c.id === customerId);
-    return customer ? customer.name : 'Cliente Desconhecido';
+    const customer = customers.find((c) => c.id === customerId);
+    return customer ? customer.name : "Cliente Desconhecido";
   };
 
   const getOrderStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending': return 'warning';
-      case 'confirmed': return 'info';
-      case 'processing': return 'primary';
-      case 'shipped': return 'secondary';
-      case 'delivered': return 'success';
-      case 'cancelled': return 'error';
-      default: return 'default';
+      case "pending":
+        return "warning";
+      case "confirmed":
+        return "info";
+      case "processing":
+        return "primary";
+      case "shipped":
+        return "secondary";
+      case "delivered":
+        return "success";
+      case "cancelled":
+        return "error";
+      default:
+        return "default";
     }
   };
 
   const getOrderStatusLabel = (status: string) => {
     const labels: { [key: string]: string } = {
-      pending: 'Pendente',
-      confirmed: 'Confirmado',
-      processing: 'Processando',
-      shipped: 'Enviado',
-      delivered: 'Entregue',
-      cancelled: 'Cancelado'
+      pending: "Pendente",
+      confirmed: "Confirmado",
+      processing: "Processando",
+      shipped: "Enviado",
+      delivered: "Entregue",
+      cancelled: "Cancelado",
     };
     return labels[status.toLowerCase()] || status;
   };
@@ -139,29 +146,35 @@ const AdminVendas: React.FC = () => {
 
   const calculateStats = () => {
     const totalOrders = filteredOrders.length;
-    const totalRevenue = filteredOrders.reduce((sum, order) => sum + order.total, 0);
+    const totalRevenue = filteredOrders.reduce(
+      (sum, order) => sum + order.total,
+      0
+    );
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-    const completedOrders = filteredOrders.filter(order => order.status === 'delivered').length;
-    const completionRate = totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+    const completedOrders = filteredOrders.filter(
+      (order) => order.status === "delivered"
+    ).length;
+    const completionRate =
+      totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
 
     // Calcular crescimento comparado ao período anterior
     const currentPeriodStart = new Date();
-    if (periodFilter === 'month') {
+    if (periodFilter === "month") {
       currentPeriodStart.setMonth(currentPeriodStart.getMonth() - 1);
-    } else if (periodFilter === 'week') {
+    } else if (periodFilter === "week") {
       currentPeriodStart.setDate(currentPeriodStart.getDate() - 7);
     } else {
       currentPeriodStart.setDate(currentPeriodStart.getDate() - 30);
     }
 
-    const previousPeriodOrders = orders.filter(order => {
+    const previousPeriodOrders = orders.filter((order) => {
       const orderDate = new Date(order.createdAt);
       const prevStart = new Date(currentPeriodStart);
       const prevEnd = new Date(currentPeriodStart);
-      
-      if (periodFilter === 'month') {
+
+      if (periodFilter === "month") {
         prevStart.setMonth(prevStart.getMonth() - 1);
-      } else if (periodFilter === 'week') {
+      } else if (periodFilter === "week") {
         prevStart.setDate(prevStart.getDate() - 7);
         prevEnd.setDate(prevEnd.getDate() - 7);
       } else {
@@ -172,52 +185,66 @@ const AdminVendas: React.FC = () => {
       return orderDate >= prevStart && orderDate <= prevEnd;
     });
 
-    const previousRevenue = previousPeriodOrders.reduce((sum, order) => sum + order.total, 0);
-    const revenueGrowth = previousRevenue > 0 ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 : 0;
+    const previousRevenue = previousPeriodOrders.reduce(
+      (sum, order) => sum + order.total,
+      0
+    );
+    const revenueGrowth =
+      previousRevenue > 0
+        ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
+        : 0;
 
     return {
       totalOrders,
       totalRevenue,
       averageOrderValue,
       completionRate,
-      revenueGrowth
+      revenueGrowth,
     };
   };
 
   const exportData = () => {
     const csvContent = [
-      ['ID', 'Data', 'Cliente', 'Status', 'Total'].join(','),
-      ...filteredOrders.map(order => [
-        order.id,
-        new Date(order.createdAt).toLocaleDateString(),
-        getCustomerName(order.customerId),
-        getOrderStatusLabel(order.status),
-        order.total.toFixed(2)
-      ].join(','))
-    ].join('\n');
+      ["ID", "Data", "Cliente", "Status", "Total"].join(","),
+      ...filteredOrders.map((order) =>
+        [
+          order.id,
+          new Date(order.createdAt).toLocaleDateString(),
+          getCustomerName(order.customerId),
+          getOrderStatusLabel(order.status),
+          order.total.toFixed(2),
+        ].join(",")
+      ),
+    ].join("\n");
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: "text/csv" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = `vendas_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `vendas_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
   };
 
   const stats = calculateStats();
-  const paginatedOrders = filteredOrders.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
+  const paginatedOrders = filteredOrders.slice(
+    page * ITEMS_PER_PAGE,
+    (page + 1) * ITEMS_PER_PAGE
+  );
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h4" component="h1">
           Relatório de Vendas
         </Typography>
-        <Button
-          variant="outlined"
-          startIcon={<GetApp />}
-          onClick={exportData}
-        >
+        <Button variant="outlined" startIcon={<GetApp />} onClick={exportData}>
           Exportar CSV
         </Button>
       </Box>
@@ -227,14 +254,18 @@ const AdminVendas: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Total de Pedidos
                   </Typography>
-                  <Typography variant="h5">
-                    {stats.totalOrders}
-                  </Typography>
+                  <Typography variant="h5">{stats.totalOrders}</Typography>
                 </Box>
                 <Timeline color="primary" />
               </Box>
@@ -244,7 +275,13 @@ const AdminVendas: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Receita Total
@@ -252,14 +289,21 @@ const AdminVendas: React.FC = () => {
                   <Typography variant="h5" color="primary">
                     R$ {stats.totalRevenue.toFixed(2)}
                   </Typography>
-                  <Typography variant="body2" color={stats.revenueGrowth >= 0 ? 'success.main' : 'error.main'}>
-                    {stats.revenueGrowth >= 0 ? '+' : ''}{stats.revenueGrowth.toFixed(1)}% vs período anterior
+                  <Typography
+                    variant="body2"
+                    color={
+                      stats.revenueGrowth >= 0 ? "success.main" : "error.main"
+                    }
+                  >
+                    {stats.revenueGrowth >= 0 ? "+" : ""}
+                    {stats.revenueGrowth.toFixed(1)}% vs período anterior
                   </Typography>
                 </Box>
-                {stats.revenueGrowth >= 0 ? 
-                  <TrendingUp color="success" /> : 
+                {stats.revenueGrowth >= 0 ? (
+                  <TrendingUp color="success" />
+                ) : (
                   <TrendingDown color="error" />
-                }
+                )}
               </Box>
             </CardContent>
           </Card>
@@ -333,8 +377,8 @@ const AdminVendas: React.FC = () => {
               fullWidth
               variant="outlined"
               onClick={() => {
-                setStatusFilter('');
-                setPeriodFilter('all');
+                setStatusFilter("");
+                setPeriodFilter("all");
               }}
             >
               Limpar Filtros
@@ -380,13 +424,14 @@ const AdminVendas: React.FC = () => {
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">
-                    {order.items.length} {order.items.length === 1 ? 'item' : 'itens'}
+                    {order.items.length}{" "}
+                    {order.items.length === 1 ? "item" : "itens"}
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Chip 
-                    label={getOrderStatusLabel(order.status)} 
-                    size="small" 
+                  <Chip
+                    label={getOrderStatusLabel(order.status)}
+                    size="small"
                     color={getOrderStatusColor(order.status) as any}
                   />
                 </TableCell>
@@ -411,7 +456,7 @@ const AdminVendas: React.FC = () => {
       </TableContainer>
 
       {/* Paginação */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
         <Pagination
           count={Math.ceil(filteredOrders.length / ITEMS_PER_PAGE)}
           page={page + 1}
@@ -421,10 +466,13 @@ const AdminVendas: React.FC = () => {
       </Box>
 
       {/* Dialog de Detalhes do Pedido */}
-      <Dialog open={detailsOpen} onClose={() => setDetailsOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Detalhes do Pedido #{selectedOrder?.id}
-        </DialogTitle>
+      <Dialog
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Detalhes do Pedido #{selectedOrder?.id}</DialogTitle>
         <DialogContent>
           {selectedOrder && (
             <Box sx={{ mt: 2 }}>
@@ -436,10 +484,22 @@ const AdminVendas: React.FC = () => {
                         Informações do Pedido
                       </Typography>
                       <Box sx={{ mt: 2 }}>
-                        <Typography><strong>Data:</strong> {new Date(selectedOrder.createdAt).toLocaleString()}</Typography>
-                        <Typography><strong>Cliente:</strong> {getCustomerName(selectedOrder.customerId)}</Typography>
-                        <Typography><strong>Status:</strong> {getOrderStatusLabel(selectedOrder.status)}</Typography>
-                        <Typography><strong>Total:</strong> R$ {selectedOrder.total.toFixed(2)}</Typography>
+                        <Typography>
+                          <strong>Data:</strong>{" "}
+                          {new Date(selectedOrder.createdAt).toLocaleString()}
+                        </Typography>
+                        <Typography>
+                          <strong>Cliente:</strong>{" "}
+                          {getCustomerName(selectedOrder.customerId)}
+                        </Typography>
+                        <Typography>
+                          <strong>Status:</strong>{" "}
+                          {getOrderStatusLabel(selectedOrder.status)}
+                        </Typography>
+                        <Typography>
+                          <strong>Total:</strong> R${" "}
+                          {selectedOrder.total.toFixed(2)}
+                        </Typography>
                       </Box>
                     </CardContent>
                   </Card>
@@ -453,9 +513,16 @@ const AdminVendas: React.FC = () => {
                       <Box sx={{ mt: 2 }}>
                         {selectedOrder.shippingAddress && (
                           <>
-                            <Typography>{selectedOrder.shippingAddress.address}</Typography>
-                            <Typography>{selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state}</Typography>
-                            <Typography>{selectedOrder.shippingAddress.zipCode}</Typography>
+                            <Typography>
+                              {selectedOrder.shippingAddress.address}
+                            </Typography>
+                            <Typography>
+                              {selectedOrder.shippingAddress.city},{" "}
+                              {selectedOrder.shippingAddress.state}
+                            </Typography>
+                            <Typography>
+                              {selectedOrder.shippingAddress.zipCode}
+                            </Typography>
                           </>
                         )}
                       </Box>
@@ -480,13 +547,19 @@ const AdminVendas: React.FC = () => {
                     </TableHead>
                     <TableBody>
                       {selectedOrder.items.map((item, index) => {
-                        const card = cards.find(c => c.id === item.cardId);
+                        const card = cards.find((c) => c.id === item.cardId);
                         return (
                           <TableRow key={index}>
-                            <TableCell>{card ? card.name : 'Produto Desconhecido'}</TableCell>
+                            <TableCell>
+                              {card ? card.name : "Produto Desconhecido"}
+                            </TableCell>
                             <TableCell align="right">{item.quantity}</TableCell>
-                            <TableCell align="right">R$ {item.card.price.toFixed(2)}</TableCell>
-                            <TableCell align="right">R$ {(item.card.price * item.quantity).toFixed(2)}</TableCell>
+                            <TableCell align="right">
+                              R$ {item.card.price.toFixed(2)}
+                            </TableCell>
+                            <TableCell align="right">
+                              R$ {(item.card.price * item.quantity).toFixed(2)}
+                            </TableCell>
                           </TableRow>
                         );
                       })}

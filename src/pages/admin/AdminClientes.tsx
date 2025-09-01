@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -9,7 +9,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
   TextField,
   Grid,
   Card,
@@ -22,13 +21,10 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
   Snackbar,
-} from '@mui/material';
+  CircularProgress,
+} from "@mui/material";
 import {
   Search,
   Visibility,
@@ -37,214 +33,137 @@ import {
   Add,
   Edit,
   Delete,
-} from '@mui/icons-material';
-import { getOrders, getCustomers, writeStore, STORE_KEYS } from '../../store';
-import { Customer, Order } from '../../types';
+  Person,
+} from "@mui/icons-material";
+import { customerApi, CreateCustomerData } from "../../api/customerApi";
+import { Customer } from "../../types";
 
 const ITEMS_PER_PAGE = 10;
 
 const AdminClientes: React.FC = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
-  const [page, setPage] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Estados para detalhes do cliente
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
+    null
+  );
+  const [customerStats, setCustomerStats] = useState<any>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  
-  // CRUD states
+
+  // Estados do CRUD
   const [openDialog, setOpenDialog] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
 
-  // Form data
-  const [formData, setFormData] = useState<Partial<Customer>>({
-    name: '',
-    email: '',
-    phone: '',
-    address: '',
-    cpf: '',
+  // Dados do formulário
+  const [formData, setFormData] = useState<CreateCustomerData>({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    cpf: "",
   });
 
   useEffect(() => {
-    loadData();
-  }, []);
+    loadCustomers();
+  }, [currentPage, searchTerm]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [customers, searchTerm, statusFilter]);
-
-  const loadData = () => {
-    const loadedCustomers = getCustomers();
-    const loadedOrders = getOrders();
-    setCustomers(loadedCustomers);
-    setOrders(loadedOrders);
-  };
-
-  const applyFilters = () => {
-    let filtered = customers;
-
-    if (searchTerm) {
-      filtered = filtered.filter(customer =>
-        customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        customer.phone?.includes(searchTerm)
+  const loadCustomers = async () => {
+    setLoading(true);
+    try {
+      const result = await customerApi.getCustomers(
+        searchTerm || undefined,
+        currentPage,
+        ITEMS_PER_PAGE
       );
-    }
-
-    if (statusFilter === 'active') {
-      filtered = filtered.filter(customer => 
-        orders.some(order => order.customerId === customer.id)
+      setCustomers(result.customers);
+      setTotalCustomers(result.total);
+      setTotalPages(result.totalPages);
+    } catch (error) {
+      console.error("Erro ao carregar clientes:", error);
+      showSnackbar(
+        "Erro ao carregar clientes. Verifique se o servidor está rodando.",
+        "error"
       );
-    } else if (statusFilter === 'inactive') {
-      filtered = filtered.filter(customer => 
-        !orders.some(order => order.customerId === customer.id)
-      );
+    } finally {
+      setLoading(false);
     }
-
-    setFilteredCustomers(filtered);
-    setPage(0);
   };
 
-  const getCustomerStats = (customerId: string) => {
-    const customerOrders = orders.filter(order => order.customerId === customerId);
-    const totalSpent = customerOrders.reduce((total, order) => total + order.total, 0);
-    const lastOrder = customerOrders.sort((a, b) => 
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    )[0];
-
-    return {
-      totalOrders: customerOrders.length,
-      totalSpent,
-      lastOrderDate: lastOrder ? new Date(lastOrder.createdAt).toLocaleDateString() : 'Nunca',
-      isActive: customerOrders.length > 0
-    };
+  const showSnackbar = (message: string, severity: "success" | "error") => {
+    setSnackbar({ open: true, message, severity });
   };
 
-  const handleViewDetails = (customer: Customer) => {
-    setSelectedCustomer(customer);
-    const customerOrdersList = orders.filter(order => order.customerId === customer.id);
-    setCustomerOrders(customerOrdersList);
-    setDetailsOpen(true);
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
   };
 
-  // CRUD Functions
-  const handleOpenDialog = (customer?: Customer) => {
-    if (customer) {
-      setEditingCustomer(customer);
-      setFormData({
-        name: customer.name,
-        email: customer.email,
-        phone: customer.phone || '',
-        address: customer.address || '',
-        cpf: customer.cpf || '',
-      });
-    } else {
-      setEditingCustomer(null);
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        cpf: '',
-      });
-    }
+  const handleSearch = (value: string) => {
+    setSearchTerm(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageChange = (
+    _event: React.ChangeEvent<unknown>,
+    value: number
+  ) => {
+    setCurrentPage(value);
+  };
+
+  const handleAddCustomer = () => {
+    setEditingCustomer(null);
+    setFormData({
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      cpf: "",
+    });
     setOpenDialog(true);
   };
 
-  const handleCloseDialog = () => {
-    setOpenDialog(false);
-    setEditingCustomer(null);
+  const handleEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
     setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      address: '',
-      cpf: '',
+      name: customer.name,
+      email: customer.email,
+      phone: customer.phone || "",
+      address: customer.address || "",
+      cpf: customer.cpf || "",
     });
+    setOpenDialog(true);
   };
 
-  const handleSaveCustomer = () => {
-    if (!formData.name || !formData.email) {
-      setSnackbar({
-        open: true,
-        message: 'Nome e email são obrigatórios!',
-        severity: 'error'
-      });
-      return;
-    }
+  const handleSaveCustomer = async () => {
+    try {
+      if (editingCustomer) {
+        await customerApi.updateCustomer(editingCustomer.id, formData);
+        showSnackbar("Cliente atualizado com sucesso!", "success");
+      } else {
+        await customerApi.createCustomer(formData);
+        showSnackbar("Cliente criado com sucesso!", "success");
+      }
 
-    // Validar email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setSnackbar({
-        open: true,
-        message: 'Email inválido!',
-        severity: 'error'
-      });
-      return;
-    }
-
-    // Validar CPF (formato básico)
-    if (formData.cpf && !/^\d{11}$/.test(formData.cpf.replace(/\D/g, ''))) {
-      setSnackbar({
-        open: true,
-        message: 'CPF deve ter 11 dígitos!',
-        severity: 'error'
-      });
-      return;
-    }
-
-    const allCustomers = getCustomers();
-    
-    if (editingCustomer) {
-      // Editar cliente existente
-      const updatedCustomer: Customer = {
-        ...editingCustomer,
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        cpf: formData.cpf,
-      };
-
-      const updatedCustomers = allCustomers.map(customer =>
-        customer.id === editingCustomer.id ? updatedCustomer : customer
+      setOpenDialog(false);
+      loadCustomers();
+    } catch (error) {
+      console.error("Erro ao salvar cliente:", error);
+      showSnackbar(
+        error instanceof Error ? error.message : "Erro ao salvar cliente",
+        "error"
       );
-
-      writeStore(STORE_KEYS.customers, updatedCustomers);
-      setSnackbar({
-        open: true,
-        message: 'Cliente atualizado com sucesso!',
-        severity: 'success'
-      });
-    } else {
-      // Criar novo cliente
-      const newCustomer: Customer = {
-        id: Date.now().toString(),
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        address: formData.address,
-        cpf: formData.cpf,
-        createdAt: new Date().toISOString(),
-      };
-
-      const updatedCustomers = [...allCustomers, newCustomer];
-      writeStore(STORE_KEYS.customers, updatedCustomers);
-      setSnackbar({
-        open: true,
-        message: 'Cliente criado com sucesso!',
-        severity: 'success'
-      });
     }
-
-    loadData();
-    handleCloseDialog();
   };
 
   const handleDeleteCustomer = (customerId: string) => {
@@ -252,317 +171,263 @@ const AdminClientes: React.FC = () => {
     setDeleteConfirmOpen(true);
   };
 
-  const confirmDeleteCustomer = () => {
-    if (customerToDelete) {
-      const allCustomers = getCustomers();
-      const updatedCustomers = allCustomers.filter(customer => customer.id !== customerToDelete);
-      writeStore(STORE_KEYS.customers, updatedCustomers);
-      
-      setSnackbar({
-        open: true,
-        message: 'Cliente excluído com sucesso!',
-        severity: 'success'
-      });
-      
-      loadData();
+  const confirmDeleteCustomer = async () => {
+    if (!customerToDelete) return;
+
+    try {
+      await customerApi.deleteCustomer(customerToDelete);
+      showSnackbar("Cliente deletado com sucesso!", "success");
+      setDeleteConfirmOpen(false);
+      setCustomerToDelete(null);
+      loadCustomers();
+    } catch (error) {
+      console.error("Erro ao deletar cliente:", error);
+      showSnackbar(
+        error instanceof Error ? error.message : "Erro ao deletar cliente",
+        "error"
+      );
     }
-    setDeleteConfirmOpen(false);
-    setCustomerToDelete(null);
   };
 
-  const formatCPF = (cpf: string) => {
-    const cleaned = cpf.replace(/\D/g, '');
-    const match = cleaned.match(/^(\d{3})(\d{3})(\d{3})(\d{2})$/);
-    if (match) {
-      return `${match[1]}.${match[2]}.${match[3]}-${match[4]}`;
+  const handleViewCustomer = async (customer: Customer) => {
+    setSelectedCustomer(customer);
+    setDetailsOpen(true);
+
+    try {
+      const stats = await customerApi.getCustomerStats(customer.id);
+      setCustomerStats(stats);
+    } catch (error) {
+      console.error("Erro ao carregar estatísticas do cliente:", error);
+      setCustomerStats(null);
     }
-    return cpf;
   };
 
-  const getStatusColor = (isActive: boolean) => {
-    return isActive ? 'success' : 'default';
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(value);
   };
 
-  const getStatusLabel = (isActive: boolean) => {
-    return isActive ? 'Ativo' : 'Inativo';
+  const formatDate = (date: string | Date) => {
+    return new Date(date).toLocaleDateString("pt-BR");
   };
-
-  const paginatedCustomers = filteredCustomers.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
-
-  const totalCustomers = customers.length;
-  const activeCustomers = customers.filter(customer => 
-    orders.some(order => order.customerId === customer.id)
-  ).length;
-  const totalRevenue = orders.reduce((total, order) => total + order.total, 0);
-  const averageOrderValue = orders.length > 0 ? totalRevenue / orders.length : 0;
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+    <Box sx={{ p: 3 }}>
+      <Box
+        sx={{
+          mb: 3,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <Typography variant="h4" component="h1">
-          Gerenciar Clientes
+          Gerenciamento de Clientes
         </Typography>
         <Button
           variant="contained"
           startIcon={<Add />}
-          onClick={() => handleOpenDialog()}
+          onClick={handleAddCustomer}
         >
-          Novo Cliente
+          Adicionar Cliente
         </Button>
       </Box>
 
-      {/* Estatísticas */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total de Clientes
-              </Typography>
-              <Typography variant="h5">
-                {totalCustomers}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Clientes Ativos
-              </Typography>
-              <Typography variant="h5" color="primary">
-                {activeCustomers}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Receita Total
-              </Typography>
-              <Typography variant="h5" color="success.main">
-                R$ {totalRevenue.toFixed(2)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Ticket Médio
-              </Typography>
-              <Typography variant="h5">
-                R$ {averageOrderValue.toFixed(2)}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
       {/* Filtros */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              placeholder="Buscar clientes por nome, email ou telefone..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
-              }}
-            />
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Pesquisar clientes"
+                placeholder="Nome, email, telefone ou CPF..."
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <Search sx={{ mr: 1, color: "text.secondary" }} />
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Typography variant="body2" color="text.secondary">
+                {totalCustomers} cliente(s) encontrado(s)
+              </Typography>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="active">Ativos</MenuItem>
-                <MenuItem value="inactive">Inativos</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('');
-              }}
-            >
-              Limpar Filtros
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+        </CardContent>
+      </Card>
 
-      {/* Tabela */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Cliente</TableCell>
-              <TableCell>Contato</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Pedidos</TableCell>
-              <TableCell align="right">Total Gasto</TableCell>
-              <TableCell>Último Pedido</TableCell>
-              <TableCell align="center">Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedCustomers.map((customer) => {
-              const stats = getCustomerStats(customer.id);
-              return (
+      {/* Lista de Clientes */}
+      {loading ? (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Cliente</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Telefone</TableCell>
+                <TableCell>CPF</TableCell>
+                <TableCell>Data de Cadastro</TableCell>
+                <TableCell align="center">Ações</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {customers.map((customer) => (
                 <TableRow key={customer.id} hover>
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Avatar>
-                        {customer.name.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <Avatar sx={{ mr: 2, bgcolor: "primary.main" }}>
+                        <Person />
                       </Avatar>
                       <Box>
-                        <Typography variant="subtitle2" fontWeight="bold">
+                        <Typography variant="subtitle2">
                           {customer.name}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          ID: {customer.id}
-                        </Typography>
+                        {customer.address && (
+                          <Typography variant="caption" color="text.secondary">
+                            {customer.address}
+                          </Typography>
+                        )}
                       </Box>
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Box>
-                      <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Email fontSize="small" />
-                        {customer.email}
-                      </Typography>
-                      {customer.phone && (
-                        <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                          <Phone fontSize="small" />
-                          {customer.phone}
-                        </Typography>
-                      )}
+                    <Box sx={{ display: "flex", alignItems: "center" }}>
+                      <Email
+                        sx={{
+                          mr: 1,
+                          fontSize: "small",
+                          color: "text.secondary",
+                        }}
+                      />
+                      {customer.email}
                     </Box>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={getStatusLabel(stats.isActive)} 
-                      size="small" 
-                      color={getStatusColor(stats.isActive) as any}
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight="bold">
-                      {stats.totalOrders}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <Typography variant="body2" fontWeight="bold" color="primary">
-                      R$ {stats.totalSpent.toFixed(2)}
-                    </Typography>
+                    {customer.phone ? (
+                      <Box sx={{ display: "flex", alignItems: "center" }}>
+                        <Phone
+                          sx={{
+                            mr: 1,
+                            fontSize: "small",
+                            color: "text.secondary",
+                          }}
+                        />
+                        {customer.phone}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        Não informado
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
-                      {stats.lastOrderDate}
-                    </Typography>
+                    {customer.cpf || (
+                      <Typography variant="body2" color="text.secondary">
+                        Não informado
+                      </Typography>
+                    )}
                   </TableCell>
+                  <TableCell>{formatDate(customer.createdAt)}</TableCell>
                   <TableCell align="center">
                     <IconButton
-                      size="small"
-                      onClick={() => handleViewDetails(customer)}
-                      title="Ver Detalhes"
+                      color="primary"
+                      onClick={() => handleViewCustomer(customer)}
                     >
                       <Visibility />
                     </IconButton>
                     <IconButton
-                      size="small"
-                      onClick={() => handleOpenDialog(customer)}
-                      title="Editar Cliente"
+                      color="secondary"
+                      onClick={() => handleEditCustomer(customer)}
                     >
                       <Edit />
                     </IconButton>
                     <IconButton
-                      size="small"
-                      onClick={() => handleDeleteCustomer(customer.id)}
-                      title="Excluir Cliente"
                       color="error"
+                      onClick={() => handleDeleteCustomer(customer.id)}
                     >
                       <Delete />
                     </IconButton>
                   </TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* Paginação */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-        <Pagination
-          count={Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE)}
-          page={page + 1}
-          onChange={(_, newPage) => setPage(newPage - 1)}
-          color="primary"
-        />
-      </Box>
+      {totalPages > 1 && (
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+          />
+        </Box>
+      )}
 
       {/* Dialog de Criar/Editar Cliente */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>
-          {editingCustomer ? 'Editar Cliente' : 'Novo Cliente'}
+          {editingCustomer ? "Editar Cliente" : "Adicionar Novo Cliente"}
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Nome Completo"
-                value={formData.name || ''}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
+                label="Nome *"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Email"
+                label="Email *"
                 type="email"
-                value={formData.email || ''}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Telefone"
-                value={formData.phone || ''}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                placeholder="(11) 99999-9999"
+                value={formData.phone}
+                onChange={(e) =>
+                  setFormData({ ...formData, phone: e.target.value })
+                }
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="CPF"
-                value={formData.cpf || ''}
-                onChange={(e) => {
-                  const cleaned = e.target.value.replace(/\D/g, '');
-                  setFormData({ ...formData, cpf: cleaned });
-                }}
-                placeholder="000.000.000-00"
-                inputProps={{ maxLength: 11 }}
+                value={formData.cpf}
+                onChange={(e) =>
+                  setFormData({ ...formData, cpf: e.target.value })
+                }
               />
             </Grid>
             <Grid item xs={12}>
@@ -571,124 +436,123 @@ const AdminClientes: React.FC = () => {
                 label="Endereço"
                 multiline
                 rows={2}
-                value={formData.address || ''}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="Rua, número, bairro, cidade, estado"
+                value={formData.address}
+                onChange={(e) =>
+                  setFormData({ ...formData, address: e.target.value })
+                }
               />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancelar</Button>
-          <Button 
-            onClick={handleSaveCustomer} 
+          <Button onClick={() => setOpenDialog(false)}>Cancelar</Button>
+          <Button
+            onClick={handleSaveCustomer}
             variant="contained"
+            disabled={!formData.name || !formData.email}
           >
-            {editingCustomer ? 'Atualizar' : 'Criar'}
+            {editingCustomer ? "Atualizar" : "Criar"}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Dialog de Confirmação de Exclusão */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+      >
         <DialogTitle>Confirmar Exclusão</DialogTitle>
         <DialogContent>
           <Typography>
-            Tem certeza que deseja excluir este cliente? Esta ação não pode ser desfeita.
+            Tem certeza que deseja excluir este cliente? Esta ação não pode ser
+            desfeita.
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteConfirmOpen(false)}>Cancelar</Button>
-          <Button onClick={confirmDeleteCustomer} color="error" variant="contained">
+          <Button
+            onClick={confirmDeleteCustomer}
+            color="error"
+            variant="contained"
+          >
             Excluir
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Dialog de Detalhes do Cliente */}
-      <Dialog open={detailsOpen} onClose={() => setDetailsOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Detalhes do Cliente
-        </DialogTitle>
+      <Dialog
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Detalhes do Cliente</DialogTitle>
         <DialogContent>
           {selectedCustomer && (
-            <Box sx={{ mt: 2 }}>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Informações Pessoais
-                      </Typography>
-                      <Box sx={{ mt: 2 }}>
-                        <Typography><strong>Nome:</strong> {selectedCustomer.name}</Typography>
-                        <Typography><strong>Email:</strong> {selectedCustomer.email}</Typography>
-                        {selectedCustomer.phone && (
-                          <Typography><strong>Telefone:</strong> {selectedCustomer.phone}</Typography>
-                        )}
-                        {selectedCustomer.cpf && (
-                          <Typography><strong>CPF:</strong> {formatCPF(selectedCustomer.cpf)}</Typography>
-                        )}
-                        {selectedCustomer.address && (
-                          <Typography><strong>Endereço:</strong> {selectedCustomer.address}</Typography>
-                        )}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Estatísticas
-                      </Typography>
-                      <Box sx={{ mt: 2 }}>
-                        <Typography><strong>Total de Pedidos:</strong> {customerOrders.length}</Typography>
-                        <Typography><strong>Total Gasto:</strong> R$ {customerOrders.reduce((total, order) => total + order.total, 0).toFixed(2)}</Typography>
-                        <Typography><strong>Ticket Médio:</strong> R$ {customerOrders.length > 0 ? (customerOrders.reduce((total, order) => total + order.total, 0) / customerOrders.length).toFixed(2) : '0.00'}</Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
+            <Grid container spacing={3} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom>
+                  Informações Pessoais
+                </Typography>
+                <Typography>
+                  <strong>Nome:</strong> {selectedCustomer.name}
+                </Typography>
+                <Typography>
+                  <strong>Email:</strong> {selectedCustomer.email}
+                </Typography>
+                <Typography>
+                  <strong>Telefone:</strong>{" "}
+                  {selectedCustomer.phone || "Não informado"}
+                </Typography>
+                <Typography>
+                  <strong>CPF:</strong>{" "}
+                  {selectedCustomer.cpf || "Não informado"}
+                </Typography>
+                <Typography>
+                  <strong>Endereço:</strong>{" "}
+                  {selectedCustomer.address || "Não informado"}
+                </Typography>
+                <Typography>
+                  <strong>Cadastrado em:</strong>{" "}
+                  {formatDate(selectedCustomer.createdAt)}
+                </Typography>
               </Grid>
 
-              {customerOrders.length > 0 && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="h6" gutterBottom>
-                    Histórico de Pedidos
-                  </Typography>
-                  <TableContainer component={Paper}>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow>
-                          <TableCell>ID</TableCell>
-                          <TableCell>Data</TableCell>
-                          <TableCell>Status</TableCell>
-                          <TableCell align="right">Total</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {customerOrders.slice(0, 5).map((order) => (
-                          <TableRow key={order.id}>
-                            <TableCell>#{order.id}</TableCell>
-                            <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-                            <TableCell>
-                              <Chip label={order.status} size="small" />
-                            </TableCell>
-                            <TableCell align="right">R$ {order.total.toFixed(2)}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-                  {customerOrders.length > 5 && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      Mostrando os 5 pedidos mais recentes
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom>
+                  Estatísticas
+                </Typography>
+                {customerStats ? (
+                  <>
+                    <Typography>
+                      <strong>Total de Pedidos:</strong>{" "}
+                      {customerStats.totalOrders}
                     </Typography>
-                  )}
-                </Box>
-              )}
-            </Box>
+                    <Typography>
+                      <strong>Total Gasto:</strong>{" "}
+                      {formatCurrency(customerStats.totalSpent)}
+                    </Typography>
+                    <Typography>
+                      <strong>Itens Comprados:</strong>{" "}
+                      {customerStats.totalItems}
+                    </Typography>
+                    <Typography>
+                      <strong>Ticket Médio:</strong>{" "}
+                      {formatCurrency(customerStats.averageOrderValue)}
+                    </Typography>
+                    {customerStats.lastOrder && (
+                      <Typography>
+                        <strong>Último Pedido:</strong>{" "}
+                        {formatDate(customerStats.lastOrder)}
+                      </Typography>
+                    )}
+                  </>
+                ) : (
+                  <CircularProgress size={24} />
+                )}
+              </Grid>
+            </Grid>
           )}
         </DialogContent>
         <DialogActions>
@@ -696,17 +560,13 @@ const AdminClientes: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar para Feedback */}
+      {/* Snackbar para feedbacks */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        onClose={handleCloseSnackbar}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity}>
           {snackbar.message}
         </Alert>
       </Snackbar>

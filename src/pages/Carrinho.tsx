@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -18,24 +18,24 @@ import {
   Avatar,
   Alert,
   TextField,
-} from '@mui/material';
-import { Add, Remove, Delete, ShoppingCart } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { getCart, removeFromCart, clearCart } from '../store';
-import { CartItem } from '../types';
+} from "@mui/material";
+import { Add, Remove, Delete, ShoppingCart } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+import * as Store from "../store/index";
+import { CartItem } from "../types";
 
 // Adicionar função para atualizar quantidade no store
 const updateQuantityInStore = (itemId: string, newQuantity: number) => {
-  const cart = getCart();
-  const itemIndex = cart.findIndex(item => item.id === itemId);
-  
+  const cart = Store.getCart();
+  const itemIndex = cart.findIndex((item: CartItem) => item.id === itemId);
+
   if (itemIndex >= 0) {
     if (newQuantity <= 0) {
-      removeFromCart(itemId);
+      Store.removeFromCart(itemId);
     } else {
       cart[itemIndex].quantity = newQuantity;
-      localStorage.setItem('cart', JSON.stringify(cart));
-      window.dispatchEvent(new CustomEvent('cart:change'));
+      localStorage.setItem("cart", JSON.stringify(cart));
+      window.dispatchEvent(new CustomEvent("cart:change"));
     }
   }
 };
@@ -43,42 +43,45 @@ const updateQuantityInStore = (itemId: string, newQuantity: number) => {
 const Carrinho: React.FC = () => {
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [couponCode, setCouponCode] = useState('');
+  const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-  const [couponError, setCouponError] = useState('');
+  const [couponError, setCouponError] = useState("");
 
   useEffect(() => {
     const loadCart = () => {
-      setCartItems(getCart());
+      setCartItems(Store.getCart());
     };
 
     loadCart();
 
     const handleCartChange = () => loadCart();
-    window.addEventListener('cart:change', handleCartChange);
+    window.addEventListener("cart:change", handleCartChange);
 
     return () => {
-      window.removeEventListener('cart:change', handleCartChange);
+      window.removeEventListener("cart:change", handleCartChange);
     };
   }, []);
 
   const updateQuantity = (item: CartItem, newQuantity: number) => {
     if (newQuantity <= 0) {
-      removeFromCart(item.id);
+      Store.removeFromCart(item.id);
     } else if (newQuantity <= item.card.stock) {
       updateQuantityInStore(item.id, newQuantity);
     }
   };
 
   const getSubtotal = () => {
-    return cartItems.reduce((total, item) => total + (item.card.price * item.quantity), 0);
+    return cartItems.reduce(
+      (total, item) => total + item.card.price * item.quantity,
+      0
+    );
   };
 
   const getDiscount = () => {
     if (!appliedCoupon) return 0;
     const subtotal = getSubtotal();
-    
-    if (appliedCoupon.type === 'percentage') {
+
+    if (appliedCoupon.type === "percentage") {
       return subtotal * (appliedCoupon.discount / 100);
     } else {
       return appliedCoupon.discount;
@@ -90,22 +93,24 @@ const Carrinho: React.FC = () => {
   };
 
   const applyCoupon = () => {
-    setCouponError('');
-    
+    setCouponError("");
+
     // Simular validação de cupom
     const validCoupons = [
-      { code: 'WELCOME10', discount: 10, type: 'percentage' },
-      { code: 'SAVE5', discount: 5, type: 'fixed' },
-      { code: 'LEGENDARY20', discount: 20, type: 'percentage' }
+      { code: "WELCOME10", discount: 10, type: "percentage" },
+      { code: "SAVE5", discount: 5, type: "fixed" },
+      { code: "LEGENDARY20", discount: 20, type: "percentage" },
     ];
 
-    const coupon = validCoupons.find(c => c.code.toLowerCase() === couponCode.toLowerCase());
-    
+    const coupon = validCoupons.find(
+      (c) => c.code.toLowerCase() === couponCode.toLowerCase()
+    );
+
     if (coupon) {
       setAppliedCoupon(coupon);
-      setCouponCode('');
+      setCouponCode("");
     } else {
-      setCouponError('Cupom inválido ou expirado');
+      setCouponError("Cupom inválido ou expirado");
     }
   };
 
@@ -114,25 +119,29 @@ const Carrinho: React.FC = () => {
   };
 
   const handleCheckout = () => {
-    navigate('/checkout');
+    navigate("/checkout");
   };
 
   const handleClearCart = () => {
-    clearCart();
+    Store.clearCart();
     setAppliedCoupon(null);
   };
 
   if (cartItems.length === 0) {
     return (
-      <Box sx={{ textAlign: 'center', mt: 4 }}>
-        <ShoppingCart sx={{ fontSize: 80, color: 'text.secondary', mb: 2 }} />
+      <Box sx={{ textAlign: "center", mt: 4 }}>
+        <ShoppingCart sx={{ fontSize: 80, color: "text.secondary", mb: 2 }} />
         <Typography variant="h4" component="h1" gutterBottom>
           Carrinho de Compras
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ mb: 3 }}>
           Seu carrinho está vazio
         </Typography>
-        <Button variant="contained" size="large" onClick={() => navigate('/catalogo')}>
+        <Button
+          variant="contained"
+          size="large"
+          onClick={() => navigate("/catalogo")}
+        >
           Continuar Comprando
         </Button>
       </Box>
@@ -142,10 +151,17 @@ const Carrinho: React.FC = () => {
   return (
     <Box>
       <Typography variant="h4" component="h1" gutterBottom>
-        Carrinho de Compras ({cartItems.reduce((total, item) => total + item.quantity, 0)} itens)
+        Carrinho de Compras (
+        {cartItems.reduce((total, item) => total + item.quantity, 0)} itens)
       </Typography>
 
-      <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', md: 'row' } }}>
+      <Box
+        sx={{
+          display: "flex",
+          gap: 3,
+          flexDirection: { xs: "column", md: "row" },
+        }}
+      >
         {/* Lista de itens */}
         <Box sx={{ flex: 1 }}>
           <TableContainer component={Paper} sx={{ mb: 3 }}>
@@ -163,7 +179,9 @@ const Carrinho: React.FC = () => {
                 {cartItems.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        sx={{ display: "flex", alignItems: "center", gap: 2 }}
+                      >
                         <Avatar
                           src={item.card.image}
                           variant="rounded"
@@ -175,20 +193,29 @@ const Carrinho: React.FC = () => {
                           <Typography variant="subtitle1" fontWeight="bold">
                             {item.card.name}
                           </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                          <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
                             <Chip label={item.card.type} size="small" />
-                            <Chip 
-                              label={item.card.rarity} 
-                              size="small" 
+                            <Chip
+                              label={item.card.rarity}
+                              size="small"
                               color={
-                                item.card.rarity === 'Legendary' ? 'error' :
-                                item.card.rarity === 'Epic' ? 'warning' :
-                                item.card.rarity === 'Rare' ? 'secondary' :
-                                item.card.rarity === 'Uncommon' ? 'primary' : 'default'
+                                item.card.rarity === "Legendary"
+                                  ? "error"
+                                  : item.card.rarity === "Epic"
+                                  ? "warning"
+                                  : item.card.rarity === "Rare"
+                                  ? "secondary"
+                                  : item.card.rarity === "Uncommon"
+                                  ? "primary"
+                                  : "default"
                               }
                             />
                           </Box>
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mt: 0.5 }}
+                          >
                             {item.card.description}
                           </Typography>
                         </Box>
@@ -200,26 +227,37 @@ const Carrinho: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => updateQuantity(item, item.quantity - 1)}
+                      <Box
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 1,
+                        }}
+                      >
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            updateQuantity(item, item.quantity - 1)
+                          }
                         >
                           <Remove />
                         </IconButton>
-                        <Typography 
-                          variant="body1" 
-                          sx={{ 
-                            minWidth: 40, 
-                            textAlign: 'center',
-                            fontWeight: 'bold'
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            minWidth: 40,
+                            textAlign: "center",
+                            fontWeight: "bold",
                           }}
                         >
                           {item.quantity}
                         </Typography>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => updateQuantity(item, item.quantity + 1)}
+                        <IconButton
+                          size="small"
+                          onClick={() =>
+                            updateQuantity(item, item.quantity + 1)
+                          }
                           disabled={item.quantity >= item.card.stock}
                         >
                           <Add />
@@ -230,14 +268,18 @@ const Carrinho: React.FC = () => {
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <Typography variant="body1" fontWeight="bold" color="primary">
+                      <Typography
+                        variant="body1"
+                        fontWeight="bold"
+                        color="primary"
+                      >
                         R$ {(item.card.price * item.quantity).toFixed(2)}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
-                      <IconButton 
-                        color="error" 
-                        onClick={() => removeFromCart(item.id)}
+                      <IconButton
+                        color="error"
+                        onClick={() => Store.removeFromCart(item.id)}
                       >
                         <Delete />
                       </IconButton>
@@ -250,21 +292,21 @@ const Carrinho: React.FC = () => {
         </Box>
 
         {/* Resumo do pedido */}
-        <Box sx={{ width: { xs: '100%', md: 350 } }}>
+        <Box sx={{ width: { xs: "100%", md: 350 } }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Resumo do Pedido
               </Typography>
-              
+
               <Divider sx={{ my: 2 }} />
-              
+
               {/* Cupom de desconto */}
               <Box sx={{ mb: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>
                   Cupom de Desconto
                 </Typography>
-                <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
                   <TextField
                     size="small"
                     placeholder="Digite o cupom"
@@ -273,8 +315,8 @@ const Carrinho: React.FC = () => {
                     disabled={!!appliedCoupon}
                     fullWidth
                   />
-                  <Button 
-                    variant="outlined" 
+                  <Button
+                    variant="outlined"
                     size="small"
                     onClick={applyCoupon}
                     disabled={!couponCode || !!appliedCoupon}
@@ -282,18 +324,22 @@ const Carrinho: React.FC = () => {
                     Aplicar
                   </Button>
                 </Box>
-                
+
                 {couponError && (
                   <Alert severity="error" sx={{ mb: 1 }}>
                     {couponError}
                   </Alert>
                 )}
-                
+
                 {appliedCoupon && (
-                  <Alert 
-                    severity="success" 
+                  <Alert
+                    severity="success"
                     action={
-                      <Button size="small" color="inherit" onClick={removeCoupon}>
+                      <Button
+                        size="small"
+                        color="inherit"
+                        onClick={removeCoupon}
+                      >
                         Remover
                       </Button>
                     }
@@ -302,17 +348,25 @@ const Carrinho: React.FC = () => {
                   </Alert>
                 )}
               </Box>
-              
+
               <Divider sx={{ my: 2 }} />
-              
+
               {/* Valores */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
                 <Typography>Subtotal:</Typography>
                 <Typography>R$ {getSubtotal().toFixed(2)}</Typography>
               </Box>
-              
+
               {appliedCoupon && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    mb: 1,
+                  }}
+                >
                   <Typography color="success.main">
                     Desconto ({appliedCoupon.code}):
                   </Typography>
@@ -321,10 +375,12 @@ const Carrinho: React.FC = () => {
                   </Typography>
                 </Box>
               )}
-              
+
               <Divider sx={{ my: 2 }} />
-              
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 3 }}>
+
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 3 }}
+              >
                 <Typography variant="h6" fontWeight="bold">
                   Total:
                 </Typography>
@@ -332,8 +388,8 @@ const Carrinho: React.FC = () => {
                   R$ {getTotalPrice().toFixed(2)}
                 </Typography>
               </Box>
-              
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <Button
                   variant="contained"
                   size="large"
@@ -345,7 +401,7 @@ const Carrinho: React.FC = () => {
                 <Button
                   variant="outlined"
                   fullWidth
-                  onClick={() => navigate('/catalogo')}
+                  onClick={() => navigate("/catalogo")}
                 >
                   Continuar Comprando
                 </Button>

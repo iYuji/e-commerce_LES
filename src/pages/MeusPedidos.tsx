@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -32,7 +32,7 @@ import {
   MenuItem,
   Tabs,
   Tab,
-} from '@mui/material';
+} from "@mui/material";
 import {
   ExpandMore,
   Receipt,
@@ -43,25 +43,28 @@ import {
   Download,
   Refresh,
   FilterList,
-} from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { getOrders } from '../store';
-import { Order, OrderStatus } from '../types';
+} from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+import * as Store from "../store/index";
+import { Order, OrderStatus } from "../types";
 
-const statusColors: Record<OrderStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-  pending: 'warning',
-  processing: 'info',
-  shipped: 'primary',
-  delivered: 'success',
-  cancelled: 'error',
+const statusColors: Record<
+  OrderStatus,
+  "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"
+> = {
+  pending: "warning",
+  processing: "info",
+  shipped: "primary",
+  delivered: "success",
+  cancelled: "error",
 };
 
 const statusLabels: Record<OrderStatus, string> = {
-  pending: 'Pendente',
-  processing: 'Processando',
-  shipped: 'Enviado',
-  delivered: 'Entregue',
-  cancelled: 'Cancelado',
+  pending: "Pendente",
+  processing: "Processando",
+  shipped: "Enviado",
+  delivered: "Entregue",
+  cancelled: "Cancelado",
 };
 
 const MeusPedidos: React.FC = () => {
@@ -71,8 +74,8 @@ const MeusPedidos: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | ''>('');
-  const [dateFilter, setDateFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | "">("");
+  const [dateFilter, setDateFilter] = useState("");
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
@@ -87,15 +90,17 @@ const MeusPedidos: React.FC = () => {
     setLoading(true);
     try {
       // Simular delay de carregamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       // Obter pedidos do usuário atual (simulado)
-      const allOrders = getOrders();
-      const userOrders = allOrders.filter(order => order.customerId === 'current-user');
-      
+      const allOrders = Store.getOrders();
+      const userOrders = allOrders.filter(
+        (order: Order) => order.customerId === "current-user"
+      );
+
       setOrders(userOrders);
     } catch (error) {
-      console.error('Erro ao carregar pedidos:', error);
+      console.error("Erro ao carregar pedidos:", error);
     } finally {
       setLoading(false);
     }
@@ -106,13 +111,13 @@ const MeusPedidos: React.FC = () => {
 
     // Filtro por status
     if (statusFilter) {
-      filtered = filtered.filter(order => order.status === statusFilter);
+      filtered = filtered.filter((order) => order.status === statusFilter);
     }
 
     // Filtro por data
     if (dateFilter) {
       const filterDate = new Date(dateFilter);
-      filtered = filtered.filter(order => {
+      filtered = filtered.filter((order) => {
         const orderDate = new Date(order.createdAt);
         return orderDate.toDateString() === filterDate.toDateString();
       });
@@ -125,17 +130,24 @@ const MeusPedidos: React.FC = () => {
 
     switch (activeTab) {
       case 1: // Últimos 3 meses
-        filtered = filtered.filter(order => new Date(order.createdAt) >= threeMonthsAgo);
+        filtered = filtered.filter(
+          (order) => new Date(order.createdAt) >= threeMonthsAgo
+        );
         break;
       case 2: // Último ano
-        filtered = filtered.filter(order => new Date(order.createdAt) >= oneYearAgo);
+        filtered = filtered.filter(
+          (order) => new Date(order.createdAt) >= oneYearAgo
+        );
         break;
       default: // Todos
         break;
     }
 
     // Ordenar por data (mais recente primeiro)
-    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    filtered.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     setFilteredOrders(filtered);
   };
@@ -150,12 +162,17 @@ const MeusPedidos: React.FC = () => {
     const invoice = `
       NOTA FISCAL - Pedido #${order.id}
       
-      Data: ${new Date(order.createdAt).toLocaleDateString('pt-BR')}
+      Data: ${new Date(order.createdAt).toLocaleDateString("pt-BR")}
       
       Itens:
-      ${order.items.map(item => 
-        `- ${item.card.name} x${item.quantity} - R$ ${(item.card.price * item.quantity).toFixed(2)}`
-      ).join('\n')}
+      ${order.items
+        .map(
+          (item) =>
+            `- ${item.card.name} x${item.quantity} - R$ ${(
+              item.card.price * item.quantity
+            ).toFixed(2)}`
+        )
+        .join("\n")}
       
       Total: R$ ${order.total.toFixed(2)}
       Status: ${statusLabels[order.status]}
@@ -163,12 +180,14 @@ const MeusPedidos: React.FC = () => {
       Endereço de Entrega:
       ${order.shippingAddress.firstName} ${order.shippingAddress.lastName}
       ${order.shippingAddress.address}
-      ${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.zipCode}
+      ${order.shippingAddress.city}, ${order.shippingAddress.state} - ${
+      order.shippingAddress.zipCode
+    }
     `;
 
-    const blob = new Blob([invoice], { type: 'text/plain' });
+    const blob = new Blob([invoice], { type: "text/plain" });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
     a.download = `nota-fiscal-${order.id}.txt`;
     document.body.appendChild(a);
@@ -179,22 +198,28 @@ const MeusPedidos: React.FC = () => {
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
-      case 'delivered': return <CheckCircle />;
-      case 'shipped': return <LocalShipping />;
-      case 'cancelled': return <Cancel />;
-      default: return <Receipt />;
+      case "delivered":
+        return <CheckCircle />;
+      case "shipped":
+        return <LocalShipping />;
+      case "cancelled":
+        return <Cancel />;
+      default:
+        return <Receipt />;
     }
   };
 
   const getDeliveryProgress = (order: Order) => {
-    const statusOrder = ['pending', 'processing', 'shipped', 'delivered'];
+    const statusOrder = ["pending", "processing", "shipped", "delivered"];
     const currentIndex = statusOrder.indexOf(order.status);
-    return order.status === 'cancelled' ? 0 : ((currentIndex + 1) / statusOrder.length) * 100;
+    return order.status === "cancelled"
+      ? 0
+      : ((currentIndex + 1) / statusOrder.length) * 100;
   };
 
   const clearFilters = () => {
-    setStatusFilter('');
-    setDateFilter('');
+    setStatusFilter("");
+    setDateFilter("");
     setActiveTab(0);
   };
 
@@ -214,15 +239,18 @@ const MeusPedidos: React.FC = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h4" component="h1">
           Meus Pedidos
         </Typography>
-        <Button
-          startIcon={<Refresh />}
-          onClick={loadOrders}
-          variant="outlined"
-        >
+        <Button startIcon={<Refresh />} onClick={loadOrders} variant="outlined">
           Atualizar
         </Button>
       </Box>
@@ -242,14 +270,14 @@ const MeusPedidos: React.FC = () => {
 
       {/* Filtros */}
       <Card sx={{ mb: 3, p: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
           <FilterList />
           <Typography variant="h6">Filtros</Typography>
           <Button size="small" onClick={clearFilters}>
             Limpar Filtros
           </Button>
         </Box>
-        
+
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} sm={6} md={3}>
             <TextField
@@ -268,7 +296,7 @@ const MeusPedidos: React.FC = () => {
               ))}
             </TextField>
           </Grid>
-          
+
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
@@ -286,14 +314,13 @@ const MeusPedidos: React.FC = () => {
       {/* Lista de Pedidos */}
       {filteredOrders.length === 0 ? (
         <Alert severity="info" sx={{ mt: 3 }}>
-          {orders.length === 0 
-            ? 'Você ainda não fez nenhum pedido.' 
-            : 'Nenhum pedido encontrado com os filtros selecionados.'
-          }
-          <Button 
-            variant="outlined" 
-            sx={{ ml: 2 }} 
-            onClick={() => navigate('/catalogo')}
+          {orders.length === 0
+            ? "Você ainda não fez nenhum pedido."
+            : "Nenhum pedido encontrado com os filtros selecionados."}
+          <Button
+            variant="outlined"
+            sx={{ ml: 2 }}
+            onClick={() => navigate("/catalogo")}
           >
             Começar a Comprar
           </Button>
@@ -310,16 +337,16 @@ const MeusPedidos: React.FC = () => {
                         Pedido #{order.id}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {new Date(order.createdAt).toLocaleDateString('pt-BR', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
+                        {new Date(order.createdAt).toLocaleDateString("pt-BR", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </Typography>
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={2}>
                       <Chip
                         icon={getStatusIcon(order.status)}
@@ -328,7 +355,7 @@ const MeusPedidos: React.FC = () => {
                         variant="outlined"
                       />
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={2}>
                       <Typography variant="body2" color="text.secondary">
                         Total
@@ -337,31 +364,51 @@ const MeusPedidos: React.FC = () => {
                         R$ {order.total.toFixed(2)}
                       </Typography>
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={3}>
-                      {order.status !== 'cancelled' && order.status !== 'delivered' && (
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Progresso da Entrega
+                      {order.status !== "cancelled" &&
+                        order.status !== "delivered" && (
+                          <Box>
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              gutterBottom
+                            >
+                              Progresso da Entrega
+                            </Typography>
+                            <LinearProgress
+                              variant="determinate"
+                              value={getDeliveryProgress(order)}
+                              sx={{ height: 8, borderRadius: 4 }}
+                            />
+                          </Box>
+                        )}
+                      {order.estimatedDelivery &&
+                        order.status !== "delivered" &&
+                        order.status !== "cancelled" && (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mt: 1 }}
+                          >
+                            Previsão:{" "}
+                            {new Date(
+                              order.estimatedDelivery
+                            ).toLocaleDateString("pt-BR")}
                           </Typography>
-                          <LinearProgress
-                            variant="determinate"
-                            value={getDeliveryProgress(order)}
-                            sx={{ height: 8, borderRadius: 4 }}
-                          />
-                        </Box>
-                      )}
-                      {order.estimatedDelivery && order.status !== 'delivered' && order.status !== 'cancelled' && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                          Previsão: {new Date(order.estimatedDelivery).toLocaleDateString('pt-BR')}
-                        </Typography>
-                      )}
+                        )}
                     </Grid>
-                    
+
                     <Grid item xs={12} sm={2}>
-                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 1,
+                        }}
+                      >
                         <Tooltip title="Ver Detalhes">
-                          <IconButton 
+                          <IconButton
                             onClick={() => handleViewDetails(order)}
                             color="primary"
                           >
@@ -369,7 +416,7 @@ const MeusPedidos: React.FC = () => {
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Baixar Nota Fiscal">
-                          <IconButton 
+                          <IconButton
                             onClick={() => handleDownloadInvoice(order)}
                             color="secondary"
                           >
@@ -379,7 +426,7 @@ const MeusPedidos: React.FC = () => {
                       </Box>
                     </Grid>
                   </Grid>
-                  
+
                   {/* Accordion com itens do pedido */}
                   <Accordion sx={{ mt: 2 }}>
                     <AccordionSummary expandIcon={<ExpandMore />}>
@@ -393,17 +440,26 @@ const MeusPedidos: React.FC = () => {
                           <ListItem key={index} sx={{ px: 0 }}>
                             <ListItemText
                               primary={
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Box
+                                  sx={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                  }}
+                                >
                                   <Typography>
                                     {item.card.name} × {item.quantity}
                                   </Typography>
                                   <Typography fontWeight="bold">
-                                    R$ {(item.card.price * item.quantity).toFixed(2)}
+                                    R${" "}
+                                    {(item.card.price * item.quantity).toFixed(
+                                      2
+                                    )}
                                   </Typography>
                                 </Box>
                               }
                               secondary={
-                                <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                                <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
                                   <Chip label={item.card.type} size="small" />
                                   <Chip label={item.card.rarity} size="small" />
                                 </Box>
@@ -428,9 +484,7 @@ const MeusPedidos: React.FC = () => {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
-          Detalhes do Pedido #{selectedOrder?.id}
-        </DialogTitle>
+        <DialogTitle>Detalhes do Pedido #{selectedOrder?.id}</DialogTitle>
         <DialogContent>
           {selectedOrder && (
             <Grid container spacing={3}>
@@ -439,10 +493,13 @@ const MeusPedidos: React.FC = () => {
                   Informações do Pedido
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Data:</strong> {new Date(selectedOrder.createdAt).toLocaleDateString('pt-BR')}
+                  <strong>Data:</strong>{" "}
+                  {new Date(selectedOrder.createdAt).toLocaleDateString(
+                    "pt-BR"
+                  )}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Status:</strong> 
+                  <strong>Status:</strong>
                   <Chip
                     label={statusLabels[selectedOrder.status]}
                     color={statusColors[selectedOrder.status]}
@@ -451,27 +508,37 @@ const MeusPedidos: React.FC = () => {
                   />
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Método de Pagamento:</strong> {selectedOrder.paymentMethod}
+                  <strong>Método de Pagamento:</strong>{" "}
+                  {selectedOrder.paymentMethod}
                 </Typography>
                 {selectedOrder.estimatedDelivery && (
                   <Typography variant="body2" gutterBottom>
-                    <strong>Previsão de Entrega:</strong> {new Date(selectedOrder.estimatedDelivery).toLocaleDateString('pt-BR')}
+                    <strong>Previsão de Entrega:</strong>{" "}
+                    {new Date(
+                      selectedOrder.estimatedDelivery
+                    ).toLocaleDateString("pt-BR")}
                   </Typography>
                 )}
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>
                   Endereço de Entrega
                 </Typography>
                 <Typography variant="body2">
-                  {selectedOrder.shippingAddress.firstName} {selectedOrder.shippingAddress.lastName}<br />
-                  {selectedOrder.shippingAddress.address}<br />
-                  {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state} - {selectedOrder.shippingAddress.zipCode}<br />
+                  {selectedOrder.shippingAddress.firstName}{" "}
+                  {selectedOrder.shippingAddress.lastName}
+                  <br />
+                  {selectedOrder.shippingAddress.address}
+                  <br />
+                  {selectedOrder.shippingAddress.city},{" "}
+                  {selectedOrder.shippingAddress.state} -{" "}
+                  {selectedOrder.shippingAddress.zipCode}
+                  <br />
                   {selectedOrder.shippingAddress.phone}
                 </Typography>
               </Grid>
-              
+
               <Grid item xs={12}>
                 <Typography variant="h6" gutterBottom>
                   Itens do Pedido
@@ -499,8 +566,12 @@ const MeusPedidos: React.FC = () => {
                             <Chip label={item.card.rarity} size="small" />
                           </TableCell>
                           <TableCell align="center">{item.quantity}</TableCell>
-                          <TableCell align="right">R$ {item.card.price.toFixed(2)}</TableCell>
-                          <TableCell align="right">R$ {(item.card.price * item.quantity).toFixed(2)}</TableCell>
+                          <TableCell align="right">
+                            R$ {item.card.price.toFixed(2)}
+                          </TableCell>
+                          <TableCell align="right">
+                            R$ {(item.card.price * item.quantity).toFixed(2)}
+                          </TableCell>
                         </TableRow>
                       ))}
                       <TableRow>

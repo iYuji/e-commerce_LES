@@ -1,0 +1,93 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  address   String?
+  cpf       String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  orders Order[]
+
+  @@map("customers")
+}
+
+model Card {
+  id          String   @id @default(cuid())
+  name        String
+  type        String
+  rarity      String
+  price       Float
+  stock       Int
+  image       String?
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relacionamentos
+  orderItems OrderItem[]
+
+  @@map("cards")
+}
+
+model Order {
+  id                String        @id @default(cuid())
+  customerId        String        @map("customer_id")
+  total             Float
+  status            OrderStatus   @default(PENDING)
+  shippingAddress   String        @map("shipping_address") // JSON string
+  paymentMethod     PaymentMethod @map("payment_method")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+  estimatedDelivery DateTime?     @map("estimated_delivery")
+
+  // Relacionamentos
+  customer   Customer    @relation(fields: [customerId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String   @map("order_id")
+  cardId    String   @map("card_id")
+  quantity  Int
+  price     Float
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relacionamentos
+  order Order @relation(fields: [orderId], references: [id])
+  card  Card  @relation(fields: [cardId], references: [id])
+
+  @@map("order_items")
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CREDIT
+  DEBIT
+  PIX
+  BOLETO
+}

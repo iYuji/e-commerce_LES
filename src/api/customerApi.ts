@@ -1,0 +1,125 @@
+import { Customer } from "../types";
+
+const API_BASE_URL = "http://localhost:3002/api";
+
+export interface CreateCustomerData {
+  name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  cpf?: string;
+}
+
+export interface UpdateCustomerData {
+  name?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  cpf?: string;
+}
+
+export interface CustomersSearchResult {
+  customers: Customer[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface ApiResponse<T> {
+  message?: string;
+  customer?: T;
+  error?: string;
+}
+
+class CustomerApi {
+  private async makeRequest<T>(url: string, options?: RequestInit): Promise<T> {
+    try {
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        headers: {
+          "Content-Type": "application/json",
+          ...options?.headers,
+        },
+        ...options,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || "Erro na requisição");
+      }
+
+      return data;
+    } catch (error) {
+      console.error("API Error:", error);
+      throw error instanceof Error ? error : new Error("Erro desconhecido");
+    }
+  }
+
+  // Buscar todos os clientes com filtros e paginação
+  async getCustomers(
+    search?: string,
+    page: number = 1,
+    limit: number = 10
+  ): Promise<CustomersSearchResult> {
+    const params = new URLSearchParams();
+    if (search) params.append("search", search);
+    params.append("page", page.toString());
+    params.append("limit", limit.toString());
+
+    return this.makeRequest<CustomersSearchResult>(
+      `/customers?${params.toString()}`
+    );
+  }
+
+  // Buscar cliente por ID
+  async getCustomer(id: string): Promise<Customer> {
+    return this.makeRequest<Customer>(`/customers/${id}`);
+  }
+
+  // Estatísticas do cliente
+  async getCustomerStats(id: string): Promise<{
+    totalOrders: number;
+    totalSpent: number;
+    totalItems: number;
+    lastOrder: string | null;
+    averageOrderValue: number;
+  }> {
+    return this.makeRequest(`/customers/${id}/stats`);
+  }
+
+  // Criar novo cliente
+  async createCustomer(data: CreateCustomerData): Promise<Customer> {
+    const response = await this.makeRequest<ApiResponse<Customer>>(
+      "/customers",
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+    return response.customer!;
+  }
+
+  // Atualizar cliente
+  async updateCustomer(
+    id: string,
+    data: UpdateCustomerData
+  ): Promise<Customer> {
+    const response = await this.makeRequest<ApiResponse<Customer>>(
+      `/customers/${id}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }
+    );
+    return response.customer!;
+  }
+
+  // Deletar cliente
+  async deleteCustomer(id: string): Promise<void> {
+    await this.makeRequest(`/customers/${id}`, {
+      method: "DELETE",
+    });
+  }
+}
+
+export const customerApi = new CustomerApi();

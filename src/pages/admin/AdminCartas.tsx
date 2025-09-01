@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -28,15 +28,10 @@ import {
   CardContent,
   Avatar,
   Pagination,
-} from '@mui/material';
-import {
-  Add,
-  Edit,
-  Delete,
-  Search,
-} from '@mui/icons-material';
-import { getCards, writeStore, STORE_KEYS } from '../../store';
-import { Card as CardType } from '../../types';
+} from "@mui/material";
+import { Add, Edit, Delete, Search } from "@mui/icons-material";
+import * as Store from "../../store/index";
+import { Card as CardType } from "../../types";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -48,20 +43,24 @@ const AdminCartas: React.FC = () => {
   const [editingCard, setEditingCard] = useState<CardType | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [cardToDelete, setCardToDelete] = useState<string | null>(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
-  const [rarityFilter, setRarityFilter] = useState('');
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [rarityFilter, setRarityFilter] = useState("");
 
   // Formulário
   const [formData, setFormData] = useState<Partial<CardType>>({
-    name: '',
-    type: '',
-    rarity: 'Common',
+    name: "",
+    type: "",
+    rarity: "Common",
     price: 0,
     stock: 0,
-    description: '',
-    image: '',
+    description: "",
+    image: "",
   });
 
   useEffect(() => {
@@ -73,7 +72,7 @@ const AdminCartas: React.FC = () => {
   }, [cards, searchTerm, typeFilter, rarityFilter]);
 
   const loadCards = () => {
-    const loadedCards = getCards();
+    const loadedCards = Store.getCards();
     setCards(loadedCards);
   };
 
@@ -81,18 +80,19 @@ const AdminCartas: React.FC = () => {
     let filtered = cards;
 
     if (searchTerm) {
-      filtered = filtered.filter(card =>
-        card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        card.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      filtered = filtered.filter(
+        (card) =>
+          card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          card.description?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     if (typeFilter) {
-      filtered = filtered.filter(card => card.type === typeFilter);
+      filtered = filtered.filter((card) => card.type === typeFilter);
     }
 
     if (rarityFilter) {
-      filtered = filtered.filter(card => card.rarity === rarityFilter);
+      filtered = filtered.filter((card) => card.rarity === rarityFilter);
     }
 
     setFilteredCards(filtered);
@@ -106,13 +106,13 @@ const AdminCartas: React.FC = () => {
     } else {
       setEditingCard(null);
       setFormData({
-        name: '',
-        type: '',
-        rarity: 'Common',
+        name: "",
+        type: "",
+        rarity: "Common",
         price: 0,
         stock: 0,
-        description: '',
-        image: '',
+        description: "",
+        image: "",
       });
     }
     setOpenDialog(true);
@@ -128,8 +128,8 @@ const AdminCartas: React.FC = () => {
     if (!formData.name || !formData.type || !formData.rarity) {
       setSnackbar({
         open: true,
-        message: 'Por favor, preencha todos os campos obrigatórios',
-        severity: 'error'
+        message: "Por favor, preencha todos os campos obrigatórios",
+        severity: "error",
       });
       return;
     }
@@ -138,7 +138,7 @@ const AdminCartas: React.FC = () => {
 
     if (editingCard) {
       // Editar carta existente
-      const index = updatedCards.findIndex(c => c.id === editingCard.id);
+      const index = updatedCards.findIndex((c) => c.id === editingCard.id);
       if (index >= 0) {
         updatedCards[index] = { ...editingCard, ...formData } as CardType;
       }
@@ -151,20 +151,22 @@ const AdminCartas: React.FC = () => {
         rarity: formData.rarity!,
         price: formData.price || 0,
         stock: formData.stock || 0,
-        description: formData.description || '',
-        image: formData.image || '',
+        description: formData.description || "",
+        image: formData.image || "",
       };
       updatedCards.push(newCard);
     }
 
     setCards(updatedCards);
-    writeStore(STORE_KEYS.cards, updatedCards);
+    Store.writeStore(Store.STORE_KEYS.cards, updatedCards);
     handleCloseDialog();
-    
+
     setSnackbar({
       open: true,
-      message: editingCard ? 'Carta atualizada com sucesso!' : 'Carta adicionada com sucesso!',
-      severity: 'success'
+      message: editingCard
+        ? "Carta atualizada com sucesso!"
+        : "Carta adicionada com sucesso!",
+      severity: "success",
     });
   };
 
@@ -175,14 +177,14 @@ const AdminCartas: React.FC = () => {
 
   const confirmDelete = () => {
     if (cardToDelete) {
-      const updatedCards = cards.filter(c => c.id !== cardToDelete);
+      const updatedCards = cards.filter((c) => c.id !== cardToDelete);
       setCards(updatedCards);
-      writeStore(STORE_KEYS.cards, updatedCards);
-      
+      Store.writeStore(Store.STORE_KEYS.cards, updatedCards);
+
       setSnackbar({
         open: true,
-        message: 'Carta removida com sucesso!',
-        severity: 'success'
+        message: "Carta removida com sucesso!",
+        severity: "success",
       });
     }
     setDeleteConfirmOpen(false);
@@ -191,24 +193,40 @@ const AdminCartas: React.FC = () => {
 
   const getRarityColor = (rarity: string) => {
     switch (rarity.toLowerCase()) {
-      case 'common': return 'default';
-      case 'uncommon': return 'primary';
-      case 'rare': return 'secondary';
-      case 'epic': return 'warning';
-      case 'legendary': return 'error';
-      default: return 'default';
+      case "common":
+        return "default";
+      case "uncommon":
+        return "primary";
+      case "rare":
+        return "secondary";
+      case "epic":
+        return "warning";
+      case "legendary":
+        return "error";
+      default:
+        return "default";
     }
   };
 
   const getUniqueValues = (key: keyof CardType) => {
-    return Array.from(new Set(cards.map(card => card[key]))).filter(Boolean);
+    return Array.from(new Set(cards.map((card) => card[key]))).filter(Boolean);
   };
 
-  const paginatedCards = filteredCards.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
+  const paginatedCards = filteredCards.slice(
+    page * ITEMS_PER_PAGE,
+    (page + 1) * ITEMS_PER_PAGE
+  );
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Typography variant="h4" component="h1">
           Gerenciar Cartas
         </Typography>
@@ -229,9 +247,7 @@ const AdminCartas: React.FC = () => {
               <Typography color="textSecondary" gutterBottom>
                 Total de Cartas
               </Typography>
-              <Typography variant="h5">
-                {cards.length}
-              </Typography>
+              <Typography variant="h5">{cards.length}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -242,7 +258,7 @@ const AdminCartas: React.FC = () => {
                 Em Estoque
               </Typography>
               <Typography variant="h5">
-                {cards.filter(card => card.stock > 0).length}
+                {cards.filter((card) => card.stock > 0).length}
               </Typography>
             </CardContent>
           </Card>
@@ -254,7 +270,7 @@ const AdminCartas: React.FC = () => {
                 Sem Estoque
               </Typography>
               <Typography variant="h5" color="error">
-                {cards.filter(card => card.stock === 0).length}
+                {cards.filter((card) => card.stock === 0).length}
               </Typography>
             </CardContent>
           </Card>
@@ -266,7 +282,10 @@ const AdminCartas: React.FC = () => {
                 Valor Total
               </Typography>
               <Typography variant="h5" color="primary">
-                R$ {cards.reduce((total, card) => total + (card.price * card.stock), 0).toFixed(2)}
+                R${" "}
+                {cards
+                  .reduce((total, card) => total + card.price * card.stock, 0)
+                  .toFixed(2)}
               </Typography>
             </CardContent>
           </Card>
@@ -283,7 +302,9 @@ const AdminCartas: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
-                startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+                startAdornment: (
+                  <Search sx={{ mr: 1, color: "text.secondary" }} />
+                ),
               }}
             />
           </Grid>
@@ -296,7 +317,7 @@ const AdminCartas: React.FC = () => {
                 onChange={(e) => setTypeFilter(e.target.value)}
               >
                 <MenuItem value="">Todos</MenuItem>
-                {getUniqueValues('type').map((type: any) => (
+                {getUniqueValues("type").map((type: any) => (
                   <MenuItem key={type} value={type}>
                     {type}
                   </MenuItem>
@@ -313,7 +334,7 @@ const AdminCartas: React.FC = () => {
                 onChange={(e) => setRarityFilter(e.target.value)}
               >
                 <MenuItem value="">Todas</MenuItem>
-                {getUniqueValues('rarity').map((rarity: any) => (
+                {getUniqueValues("rarity").map((rarity: any) => (
                   <MenuItem key={rarity} value={rarity}>
                     {rarity}
                   </MenuItem>
@@ -326,9 +347,9 @@ const AdminCartas: React.FC = () => {
               fullWidth
               variant="outlined"
               onClick={() => {
-                setSearchTerm('');
-                setTypeFilter('');
-                setRarityFilter('');
+                setSearchTerm("");
+                setTypeFilter("");
+                setRarityFilter("");
               }}
             >
               Limpar
@@ -375,9 +396,9 @@ const AdminCartas: React.FC = () => {
                   <Chip label={card.type} size="small" />
                 </TableCell>
                 <TableCell>
-                  <Chip 
-                    label={card.rarity} 
-                    size="small" 
+                  <Chip
+                    label={card.rarity}
+                    size="small"
                     color={getRarityColor(card.rarity) as any}
                   />
                 </TableCell>
@@ -387,9 +408,9 @@ const AdminCartas: React.FC = () => {
                   </Typography>
                 </TableCell>
                 <TableCell align="right">
-                  <Typography 
-                    variant="body2" 
-                    color={card.stock === 0 ? 'error' : 'text.primary'}
+                  <Typography
+                    variant="body2"
+                    color={card.stock === 0 ? "error" : "text.primary"}
                   >
                     {card.stock}
                   </Typography>
@@ -418,7 +439,7 @@ const AdminCartas: React.FC = () => {
       </TableContainer>
 
       {/* Paginação */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
         <Pagination
           count={Math.ceil(filteredCards.length / ITEMS_PER_PAGE)}
           page={page + 1}
@@ -428,9 +449,14 @@ const AdminCartas: React.FC = () => {
       </Box>
 
       {/* Dialog de Adicionar/Editar */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>
-          {editingCard ? 'Editar Carta' : 'Adicionar Nova Carta'}
+          {editingCard ? "Editar Carta" : "Adicionar Nova Carta"}
         </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -438,8 +464,10 @@ const AdminCartas: React.FC = () => {
               <TextField
                 fullWidth
                 label="Nome da Carta"
-                value={formData.name || ''}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                value={formData.name || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 required
               />
             </Grid>
@@ -447,8 +475,10 @@ const AdminCartas: React.FC = () => {
               <TextField
                 fullWidth
                 label="Tipo"
-                value={formData.type || ''}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                value={formData.type || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, type: e.target.value })
+                }
                 required
               />
             </Grid>
@@ -456,9 +486,11 @@ const AdminCartas: React.FC = () => {
               <FormControl fullWidth required>
                 <InputLabel>Raridade</InputLabel>
                 <Select
-                  value={formData.rarity || 'Common'}
+                  value={formData.rarity || "Common"}
                   label="Raridade"
-                  onChange={(e) => setFormData({ ...formData, rarity: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, rarity: e.target.value })
+                  }
                 >
                   <MenuItem value="Common">Common</MenuItem>
                   <MenuItem value="Uncommon">Uncommon</MenuItem>
@@ -473,8 +505,13 @@ const AdminCartas: React.FC = () => {
                 fullWidth
                 label="Preço"
                 type="number"
-                value={formData.price || ''}
-                onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                value={formData.price || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    price: parseFloat(e.target.value) || 0,
+                  })
+                }
                 inputProps={{ min: 0, step: 0.01 }}
               />
             </Grid>
@@ -483,8 +520,13 @@ const AdminCartas: React.FC = () => {
                 fullWidth
                 label="Estoque"
                 type="number"
-                value={formData.stock || ''}
-                onChange={(e) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                value={formData.stock || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    stock: parseInt(e.target.value) || 0,
+                  })
+                }
                 inputProps={{ min: 0 }}
               />
             </Grid>
@@ -492,8 +534,10 @@ const AdminCartas: React.FC = () => {
               <TextField
                 fullWidth
                 label="URL da Imagem"
-                value={formData.image || ''}
-                onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+                value={formData.image || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, image: e.target.value })
+                }
                 placeholder="https://exemplo.com/imagem.jpg"
               />
             </Grid>
@@ -503,8 +547,10 @@ const AdminCartas: React.FC = () => {
                 label="Descrição"
                 multiline
                 rows={3}
-                value={formData.description || ''}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                value={formData.description || ""}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
               />
             </Grid>
           </Grid>
@@ -512,17 +558,21 @@ const AdminCartas: React.FC = () => {
         <DialogActions>
           <Button onClick={handleCloseDialog}>Cancelar</Button>
           <Button onClick={handleSaveCard} variant="contained">
-            {editingCard ? 'Atualizar' : 'Adicionar'}
+            {editingCard ? "Atualizar" : "Adicionar"}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Dialog de Confirmação de Exclusão */}
-      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+      <Dialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+      >
         <DialogTitle>Confirmar Exclusão</DialogTitle>
         <DialogContent>
           <Typography>
-            Tem certeza de que deseja excluir esta carta? Esta ação não pode ser desfeita.
+            Tem certeza de que deseja excluir esta carta? Esta ação não pode ser
+            desfeita.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -539,8 +589,8 @@ const AdminCartas: React.FC = () => {
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
         >
           {snackbar.message}

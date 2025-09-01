@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -27,7 +27,7 @@ import {
   MenuItem,
   Alert,
   Snackbar,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Search,
   Visibility,
@@ -37,9 +37,9 @@ import {
   Schedule,
   CheckCircle,
   Cancel,
-} from '@mui/icons-material';
-import { getExchanges, writeStore, STORE_KEYS, getCustomers, getCards } from '../../store';
-import { Exchange, Customer, Card as CardType } from '../../types';
+} from "@mui/icons-material";
+import * as Store from "../../store/index";
+import { Exchange, Customer, Card as CardType } from "../../types";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -49,11 +49,17 @@ const AdminTrocas: React.FC = () => {
   const [cards, setCards] = useState<CardType[]>([]);
   const [filteredExchanges, setFilteredExchanges] = useState<Exchange[]>([]);
   const [page, setPage] = useState(0);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [selectedExchange, setSelectedExchange] = useState<Exchange | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [selectedExchange, setSelectedExchange] = useState<Exchange | null>(
+    null
+  );
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
+  });
 
   useEffect(() => {
     loadData();
@@ -64,9 +70,9 @@ const AdminTrocas: React.FC = () => {
   }, [exchanges, searchTerm, statusFilter]);
 
   const loadData = () => {
-    const loadedExchanges = getExchanges();
-    const loadedCustomers = getCustomers();
-    const loadedCards = getCards();
+    const loadedExchanges = Store.getExchanges();
+    const loadedCustomers = Store.getCustomers();
+    const loadedCards = Store.getCards();
     setExchanges(loadedExchanges);
     setCustomers(loadedCustomers);
     setCards(loadedCards);
@@ -76,15 +82,19 @@ const AdminTrocas: React.FC = () => {
     let filtered = exchanges;
 
     if (searchTerm) {
-      filtered = filtered.filter(exchange => {
-        const customer = customers.find(c => c.id === exchange.customerId);
-        return customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               exchange.id.toLowerCase().includes(searchTerm.toLowerCase());
+      filtered = filtered.filter((exchange) => {
+        const customer = customers.find((c) => c.id === exchange.customerId);
+        return (
+          customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          exchange.id.toLowerCase().includes(searchTerm.toLowerCase())
+        );
       });
     }
 
     if (statusFilter) {
-      filtered = filtered.filter(exchange => exchange.status === statusFilter);
+      filtered = filtered.filter(
+        (exchange) => exchange.status === statusFilter
+      );
     }
 
     setFilteredExchanges(filtered);
@@ -92,42 +102,52 @@ const AdminTrocas: React.FC = () => {
   };
 
   const getCustomerName = (customerId: string) => {
-    const customer = customers.find(c => c.id === customerId);
-    return customer ? customer.name : 'Cliente Desconhecido';
+    const customer = customers.find((c) => c.id === customerId);
+    return customer ? customer.name : "Cliente Desconhecido";
   };
 
   const getCardName = (cardId: string) => {
-    const card = cards.find(c => c.id === cardId);
-    return card ? card.name : 'Carta Desconhecida';
+    const card = cards.find((c) => c.id === cardId);
+    return card ? card.name : "Carta Desconhecida";
   };
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending': return 'warning';
-      case 'approved': return 'success';
-      case 'rejected': return 'error';
-      case 'completed': return 'primary';
-      default: return 'default';
+      case "pending":
+        return "warning";
+      case "approved":
+        return "success";
+      case "rejected":
+        return "error";
+      case "completed":
+        return "primary";
+      default:
+        return "default";
     }
   };
 
   const getStatusLabel = (status: string) => {
     const labels: { [key: string]: string } = {
-      pending: 'Pendente',
-      approved: 'Aprovado',
-      rejected: 'Rejeitado',
-      completed: 'Concluído'
+      pending: "Pendente",
+      approved: "Aprovado",
+      rejected: "Rejeitado",
+      completed: "Concluído",
     };
     return labels[status.toLowerCase()] || status;
   };
 
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
-      case 'pending': return <Schedule />;
-      case 'approved': return <CheckCircle />;
-      case 'rejected': return <Cancel />;
-      case 'completed': return <Check />;
-      default: return <SwapHoriz />;
+      case "pending":
+        return <Schedule />;
+      case "approved":
+        return <CheckCircle />;
+      case "rejected":
+        return <Cancel />;
+      case "completed":
+        return <Check />;
+      default:
+        return <SwapHoriz />;
     }
   };
 
@@ -137,38 +157,51 @@ const AdminTrocas: React.FC = () => {
   };
 
   const handleStatusChange = (exchangeId: string, newStatus: string) => {
-    const updatedExchanges = exchanges.map(exchange =>
-      exchange.id === exchangeId ? { ...exchange, status: newStatus as Exchange['status'] } : exchange
+    const updatedExchanges = exchanges.map((exchange) =>
+      exchange.id === exchangeId
+        ? { ...exchange, status: newStatus as Exchange["status"] }
+        : exchange
     );
     setExchanges(updatedExchanges);
-    writeStore(STORE_KEYS.exchanges, updatedExchanges);
-    
+    Store.writeStore(Store.STORE_KEYS.exchanges, updatedExchanges);
+
     setSnackbar({
       open: true,
       message: `Troca ${getStatusLabel(newStatus).toLowerCase()} com sucesso!`,
-      severity: 'success'
+      severity: "success",
     });
     setDetailsOpen(false);
   };
 
   const calculateStats = () => {
     const totalExchanges = exchanges.length;
-    const pendingExchanges = exchanges.filter(e => e.status === 'pending').length;
-    const approvedExchanges = exchanges.filter(e => e.status === 'approved').length;
-    const completedExchanges = exchanges.filter(e => e.status === 'completed').length;
-    const rejectedExchanges = exchanges.filter(e => e.status === 'rejected').length;
+    const pendingExchanges = exchanges.filter(
+      (e) => e.status === "pending"
+    ).length;
+    const approvedExchanges = exchanges.filter(
+      (e) => e.status === "approved"
+    ).length;
+    const completedExchanges = exchanges.filter(
+      (e) => e.status === "completed"
+    ).length;
+    const rejectedExchanges = exchanges.filter(
+      (e) => e.status === "rejected"
+    ).length;
 
     return {
       totalExchanges,
       pendingExchanges,
       approvedExchanges,
       completedExchanges,
-      rejectedExchanges
+      rejectedExchanges,
     };
   };
 
   const stats = calculateStats();
-  const paginatedExchanges = filteredExchanges.slice(page * ITEMS_PER_PAGE, (page + 1) * ITEMS_PER_PAGE);
+  const paginatedExchanges = filteredExchanges.slice(
+    page * ITEMS_PER_PAGE,
+    (page + 1) * ITEMS_PER_PAGE
+  );
 
   return (
     <Box>
@@ -181,14 +214,18 @@ const AdminTrocas: React.FC = () => {
         <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Total
                   </Typography>
-                  <Typography variant="h5">
-                    {stats.totalExchanges}
-                  </Typography>
+                  <Typography variant="h5">{stats.totalExchanges}</Typography>
                 </Box>
                 <SwapHoriz color="primary" />
               </Box>
@@ -198,7 +235,13 @@ const AdminTrocas: React.FC = () => {
         <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Pendentes
@@ -215,7 +258,13 @@ const AdminTrocas: React.FC = () => {
         <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Aprovadas
@@ -232,7 +281,13 @@ const AdminTrocas: React.FC = () => {
         <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Concluídas
@@ -249,7 +304,13 @@ const AdminTrocas: React.FC = () => {
         <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
                   <Typography color="textSecondary" gutterBottom>
                     Rejeitadas
@@ -268,7 +329,8 @@ const AdminTrocas: React.FC = () => {
       {/* Alertas */}
       {stats.pendingExchanges > 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Você tem {stats.pendingExchanges} solicitação(ões) de troca pendente(s) para revisar.
+          Você tem {stats.pendingExchanges} solicitação(ões) de troca
+          pendente(s) para revisar.
         </Alert>
       )}
 
@@ -282,7 +344,9 @@ const AdminTrocas: React.FC = () => {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               InputProps={{
-                startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} />
+                startAdornment: (
+                  <Search sx={{ mr: 1, color: "text.secondary" }} />
+                ),
               }}
             />
           </Grid>
@@ -307,8 +371,8 @@ const AdminTrocas: React.FC = () => {
               fullWidth
               variant="outlined"
               onClick={() => {
-                setSearchTerm('');
-                setStatusFilter('');
+                setSearchTerm("");
+                setStatusFilter("");
               }}
             >
               Limpar Filtros
@@ -360,9 +424,9 @@ const AdminTrocas: React.FC = () => {
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Chip 
-                    label={getStatusLabel(exchange.status)} 
-                    size="small" 
+                  <Chip
+                    label={getStatusLabel(exchange.status)}
+                    size="small"
                     color={getStatusColor(exchange.status) as any}
                     icon={getStatusIcon(exchange.status)}
                   />
@@ -383,7 +447,7 @@ const AdminTrocas: React.FC = () => {
       </TableContainer>
 
       {/* Paginação */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
         <Pagination
           count={Math.ceil(filteredExchanges.length / ITEMS_PER_PAGE)}
           page={page + 1}
@@ -393,10 +457,13 @@ const AdminTrocas: React.FC = () => {
       </Box>
 
       {/* Dialog de Detalhes da Troca */}
-      <Dialog open={detailsOpen} onClose={() => setDetailsOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>
-          Detalhes da Troca #{selectedExchange?.id}
-        </DialogTitle>
+      <Dialog
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Detalhes da Troca #{selectedExchange?.id}</DialogTitle>
         <DialogContent>
           {selectedExchange && (
             <Box sx={{ mt: 2 }}>
@@ -408,11 +475,24 @@ const AdminTrocas: React.FC = () => {
                         Informações da Troca
                       </Typography>
                       <Box sx={{ mt: 2 }}>
-                        <Typography><strong>Cliente:</strong> {getCustomerName(selectedExchange.customerId)}</Typography>
-                        <Typography><strong>Data:</strong> {new Date(selectedExchange.createdAt).toLocaleString()}</Typography>
-                        <Typography><strong>Status:</strong> {getStatusLabel(selectedExchange.status)}</Typography>
+                        <Typography>
+                          <strong>Cliente:</strong>{" "}
+                          {getCustomerName(selectedExchange.customerId)}
+                        </Typography>
+                        <Typography>
+                          <strong>Data:</strong>{" "}
+                          {new Date(
+                            selectedExchange.createdAt
+                          ).toLocaleString()}
+                        </Typography>
+                        <Typography>
+                          <strong>Status:</strong>{" "}
+                          {getStatusLabel(selectedExchange.status)}
+                        </Typography>
                         {selectedExchange.reason && (
-                          <Typography><strong>Motivo:</strong> {selectedExchange.reason}</Typography>
+                          <Typography>
+                            <strong>Motivo:</strong> {selectedExchange.reason}
+                          </Typography>
                         )}
                       </Box>
                     </CardContent>
@@ -425,22 +505,40 @@ const AdminTrocas: React.FC = () => {
                         Detalhes da Troca
                       </Typography>
                       <Box sx={{ mt: 2 }}>
-                        <Typography><strong>Carta Oferecida:</strong> {getCardName(selectedExchange.offeredCardId)}</Typography>
-                        <Typography><strong>Carta Desejada:</strong> {getCardName(selectedExchange.requestedCardId)}</Typography>
-                        <Typography><strong>Observações:</strong> {selectedExchange.notes || 'Nenhuma'}</Typography>
+                        <Typography>
+                          <strong>Carta Oferecida:</strong>{" "}
+                          {getCardName(selectedExchange.offeredCardId)}
+                        </Typography>
+                        <Typography>
+                          <strong>Carta Desejada:</strong>{" "}
+                          {getCardName(selectedExchange.requestedCardId)}
+                        </Typography>
+                        <Typography>
+                          <strong>Observações:</strong>{" "}
+                          {selectedExchange.notes || "Nenhuma"}
+                        </Typography>
                       </Box>
                     </CardContent>
                   </Card>
                 </Grid>
               </Grid>
 
-              {selectedExchange.status === 'pending' && (
-                <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
+              {selectedExchange.status === "pending" && (
+                <Box
+                  sx={{
+                    mt: 3,
+                    display: "flex",
+                    gap: 2,
+                    justifyContent: "center",
+                  }}
+                >
                   <Button
                     variant="contained"
                     color="success"
                     startIcon={<Check />}
-                    onClick={() => handleStatusChange(selectedExchange.id, 'approved')}
+                    onClick={() =>
+                      handleStatusChange(selectedExchange.id, "approved")
+                    }
                   >
                     Aprovar Troca
                   </Button>
@@ -448,20 +546,24 @@ const AdminTrocas: React.FC = () => {
                     variant="contained"
                     color="error"
                     startIcon={<Close />}
-                    onClick={() => handleStatusChange(selectedExchange.id, 'rejected')}
+                    onClick={() =>
+                      handleStatusChange(selectedExchange.id, "rejected")
+                    }
                   >
                     Rejeitar Troca
                   </Button>
                 </Box>
               )}
 
-              {selectedExchange.status === 'approved' && (
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
+              {selectedExchange.status === "approved" && (
+                <Box sx={{ mt: 3, display: "flex", justifyContent: "center" }}>
                   <Button
                     variant="contained"
                     color="primary"
                     startIcon={<Check />}
-                    onClick={() => handleStatusChange(selectedExchange.id, 'completed')}
+                    onClick={() =>
+                      handleStatusChange(selectedExchange.id, "completed")
+                    }
                   >
                     Marcar como Concluída
                   </Button>
@@ -481,8 +583,8 @@ const AdminTrocas: React.FC = () => {
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert 
-          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
         >
           {snackbar.message}
