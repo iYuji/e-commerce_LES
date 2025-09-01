@@ -4,46 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PokéCard Store</title>
-  <link rel="stylesheet" href="styles.css">
   <link rel="icon" href="data:,">
   <meta name="theme-color" content="#0b0d10">
 </head>
 <body>
-  <header class="app-header">
-    <nav class="app-nav">
-      <a href="#/catalogo" class="brand">PokéCard Store</a>
-      <a href="#/catalogo">Catálogo</a>
-      <a href="#/carrinho" id="nav-cart">Carrinho</a>
-      <a href="#/meus-pedidos" id="nav-orders">Meus Pedidos</a>
-      <a href="#/cupons" id="nav-coupons">Cupons</a>
-      <a href="#/minha-conta" id="nav-account">Minha Conta</a>
-      <a href="#/auth" id="nav-login">Entrar</a>
-      <a href="#/logout" id="nav-logout">Sair</a>
-      <div class="spacer"></div>
-      <details class="nav-group">
-        <summary>Admin</summary>
-        <div class="nav-group-menu">
-          <a href="#/admin/cartas">Cartas</a>
-          <a href="#/admin/clientes">Clientes</a>
-          <a href="#/admin/vendas">Vendas</a>
-          <a href="#/admin/trocas">Trocas</a>
-          <a href="#/admin/estoque">Estoque</a>
-          <a href="#/admin/relatorios">Relatórios</a>
-        </div>
-      </details>
-      <a href="#/assistente" title="Assistente IA">🤖</a>
-      <button id="btn-toggle-theme" class="btn ghost" aria-label="Alternar tema" title="Alternar para modo claro">🌙</button>
-    </nav>
-  </header>
-
-  <main class="container">
-    <div id="app"></div>
-  </main>
-
-  <footer class="app-footer">
-    <span>Protótipo • E-commerce TCG</span>
-  </footer>
-  <script type="module" src="src/main.js"></script>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
 </body>
 </html>
 
