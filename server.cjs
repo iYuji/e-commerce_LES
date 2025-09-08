@@ -24,6 +24,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+
 // Test Prisma connection
 app.get('/api/test-prisma', async (req, res) => {
   try {
@@ -67,13 +68,12 @@ app.get('/api/customers', async (req, res) => {
     const limitNum = parseInt(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    let where = {};
-    
+  let where = {};
     if (search) {
       where = {
         OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { email: { contains: search, mode: 'insensitive' } },
+          { name: { contains: search } },
+          { email: { contains: search } },
           { phone: { contains: search } },
           { cpf: { contains: search } },
         ],
@@ -108,6 +108,77 @@ app.get('/api/customers', async (req, res) => {
       error: 'Internal server error', 
       message: error.message 
     });
+  }
+});
+
+// GET /api/customers/:id - Buscar cliente por ID
+app.get('/api/customers/:id', async (req, res) => {
+  try {
+    console.log('Fetching customer by id:', req.params.id);
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+
+    const { id } = req.params;
+
+    const customer = await prisma.customer.findUnique({ where: { id } });
+    await prisma.$disconnect();
+
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    res.json(customer);
+  } catch (error) {
+    console.error('Error fetching customer by id:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
+// GET /api/customers/:id/stats - Estatísticas do cliente
+app.get('/api/customers/:id/stats', async (req, res) => {
+  try {
+    console.log('Fetching customer stats for:', req.params.id);
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+
+    const { id } = req.params;
+
+    // Verifica se o cliente existe
+    const exists = await prisma.customer.findUnique({ where: { id }, select: { id: true } });
+    if (!exists) {
+      await prisma.$disconnect();
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    const [totalOrders, orders] = await Promise.all([
+      prisma.order.count({ where: { customerId: id } }),
+      prisma.order.findMany({
+        where: { customerId: id },
+        orderBy: { createdAt: 'desc' },
+        include: { orderItems: true },
+      }),
+    ]);
+
+    const totalSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+    const totalItems = orders.reduce(
+      (sum, o) => sum + o.orderItems.reduce((s, it) => s + (it.quantity || 0), 0),
+      0
+    );
+    const lastOrder = orders[0]?.createdAt || null;
+    const averageOrderValue = totalOrders > 0 ? totalSpent / totalOrders : 0;
+
+    await prisma.$disconnect();
+
+    res.json({
+      totalOrders,
+      totalSpent,
+      totalItems,
+      lastOrder,
+      averageOrderValue,
+    });
+  } catch (error) {
+    console.error('Error fetching customer stats:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 });
 
@@ -261,6 +332,8 @@ app.listen(PORT, () => {
   console.log(`🚀 API Server running on http://localhost:${PORT}`);
   console.log('📋 Available CRUD endpoints:');
   console.log('- GET    /api/customers     (List customers with search & pagination)');
+  console.log('- GET    /api/customers/:id (Get a single customer)');
+  console.log('- GET    /api/customers/:id/stats (Get stats for a customer)');
   console.log('- POST   /api/customers     (Create new customer)');
   console.log('- PUT    /api/customers/:id (Update customer)');
   console.log('- DELETE /api/customers/:id (Delete customer)');

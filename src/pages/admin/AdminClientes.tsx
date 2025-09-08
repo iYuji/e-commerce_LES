@@ -66,8 +66,8 @@ const AdminClientes: React.FC = () => {
     severity: "success" as "success" | "error",
   });
 
-  // Dados do formulário
-  const [formData, setFormData] = useState<CreateCustomerData>({
+  // Form state (simple controlled inputs)
+  const [formValues, setFormValues] = useState<CreateCustomerData>({
     name: "",
     email: "",
     phone: "",
@@ -77,6 +77,7 @@ const AdminClientes: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, searchTerm]);
 
   const loadCustomers = async () => {
@@ -104,11 +105,9 @@ const AdminClientes: React.FC = () => {
   const showSnackbar = (message: string, severity: "success" | "error") => {
     setSnackbar({ open: true, message, severity });
   };
-
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
-
   const handleSearch = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
@@ -123,19 +122,13 @@ const AdminClientes: React.FC = () => {
 
   const handleAddCustomer = () => {
     setEditingCustomer(null);
-    setFormData({
-      name: "",
-      email: "",
-      phone: "",
-      address: "",
-      cpf: "",
-    });
+    setFormValues({ name: "", email: "", phone: "", address: "", cpf: "" });
     setOpenDialog(true);
   };
 
   const handleEditCustomer = (customer: Customer) => {
     setEditingCustomer(customer);
-    setFormData({
+    setFormValues({
       name: customer.name,
       email: customer.email,
       phone: customer.phone || "",
@@ -145,18 +138,17 @@ const AdminClientes: React.FC = () => {
     setOpenDialog(true);
   };
 
-  const handleSaveCustomer = async () => {
+  const handleSaveCustomer = async (values: CreateCustomerData) => {
     try {
       if (editingCustomer) {
-        await customerApi.updateCustomer(editingCustomer.id, formData);
+        await customerApi.updateCustomer(editingCustomer.id, values);
         showSnackbar("Cliente atualizado com sucesso!", "success");
       } else {
-        await customerApi.createCustomer(formData);
-        showSnackbar("Cliente criado com sucesso!", "success");
+        await customerApi.createCustomer(values);
       }
 
       setOpenDialog(false);
-      loadCustomers();
+      await loadCustomers();
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
       showSnackbar(
@@ -179,7 +171,7 @@ const AdminClientes: React.FC = () => {
       showSnackbar("Cliente deletado com sucesso!", "success");
       setDeleteConfirmOpen(false);
       setCustomerToDelete(null);
-      loadCustomers();
+      await loadCustomers();
     } catch (error) {
       console.error("Erro ao deletar cliente:", error);
       showSnackbar(
@@ -267,7 +259,7 @@ const AdminClientes: React.FC = () => {
         <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
           <CircularProgress />
         </Box>
-      ) : (
+      ) : customers.length > 0 ? (
         <TableContainer component={Paper}>
           <Table>
             <TableHead>
@@ -363,6 +355,12 @@ const AdminClientes: React.FC = () => {
             </TableBody>
           </Table>
         </TableContainer>
+      ) : (
+        <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <Typography variant="body2" color="text.secondary">
+            Nenhum cliente encontrado.
+          </Typography>
+        </Box>
       )}
 
       {/* Paginação */}
@@ -393,9 +391,9 @@ const AdminClientes: React.FC = () => {
               <TextField
                 fullWidth
                 label="Nome *"
-                value={formData.name}
+                value={formValues.name}
                 onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
+                  setFormValues({ ...formValues, name: e.target.value })
                 }
               />
             </Grid>
@@ -404,9 +402,9 @@ const AdminClientes: React.FC = () => {
                 fullWidth
                 label="Email *"
                 type="email"
-                value={formData.email}
+                value={formValues.email}
                 onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
+                  setFormValues({ ...formValues, email: e.target.value })
                 }
               />
             </Grid>
@@ -414,9 +412,9 @@ const AdminClientes: React.FC = () => {
               <TextField
                 fullWidth
                 label="Telefone"
-                value={formData.phone}
+                value={formValues.phone || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
+                  setFormValues({ ...formValues, phone: e.target.value })
                 }
               />
             </Grid>
@@ -424,9 +422,9 @@ const AdminClientes: React.FC = () => {
               <TextField
                 fullWidth
                 label="CPF"
-                value={formData.cpf}
+                value={formValues.cpf || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, cpf: e.target.value })
+                  setFormValues({ ...formValues, cpf: e.target.value })
                 }
               />
             </Grid>
@@ -436,9 +434,9 @@ const AdminClientes: React.FC = () => {
                 label="Endereço"
                 multiline
                 rows={2}
-                value={formData.address}
+                value={formValues.address || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
+                  setFormValues({ ...formValues, address: e.target.value })
                 }
               />
             </Grid>
@@ -447,9 +445,9 @@ const AdminClientes: React.FC = () => {
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>Cancelar</Button>
           <Button
-            onClick={handleSaveCustomer}
+            onClick={() => handleSaveCustomer(formValues)}
             variant="contained"
-            disabled={!formData.name || !formData.email}
+            disabled={!formValues.name || !formValues.email}
           >
             {editingCustomer ? "Atualizar" : "Criar"}
           </Button>

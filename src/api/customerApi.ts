@@ -1,6 +1,10 @@
 import { Customer } from "../types";
 
-const API_BASE_URL = "http://localhost:3002/api";
+// Resolve API base URL with env fallback
+const API_BASE_URL: string =
+  (typeof import.meta !== "undefined" &&
+    (import.meta as any).env?.VITE_API_BASE_URL) ||
+  "http://localhost:3002/api";
 
 export interface CreateCustomerData {
   name: string;
@@ -32,27 +36,55 @@ export interface ApiResponse<T> {
 }
 
 class CustomerApi {
+  // Small helper to make requests with timeout and clearer errors
   private async makeRequest<T>(url: string, options?: RequestInit): Promise<T> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
     try {
       const response = await fetch(`${API_BASE_URL}${url}`, {
         headers: {
           "Content-Type": "application/json",
           ...options?.headers,
         },
+        signal: controller.signal,
         ...options,
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+      const data = isJson ? await response.json() : (undefined as any);
 
       if (!response.ok) {
-        throw new Error(data.message || data.error || "Erro na requisição");
+        const msg =
+          (data && (data.message || data.error)) || response.statusText;
+        throw new Error(
+          `API ${response.status} ${response.statusText} at ${url}: ${msg}`
+        );
       }
 
-      return data;
-    } catch (error) {
-      console.error("API Error:", error);
-      throw error instanceof Error ? error : new Error("Erro desconhecido");
+      return data as T;
+    } catch (error: any) {
+      if (error?.name === "AbortError") {
+        throw new Error(
+          "Tempo esgotado ao conectar na API de clientes (timeout)"
+        );
+      }
+      throw error instanceof Error
+        ? error
+        : new Error("Erro desconhecido na API");
+    } finally {
+      clearTimeout(timeout);
     }
+  }
+
+  // Health check
+  async getHealth(): Promise<{
+    status: string;
+    message?: string;
+    timestamp?: string;
+  }> {
+    return this.makeRequest(`/health`);
   }
 
   // Buscar todos os clientes com filtros e paginação
@@ -123,3 +155,4 @@ class CustomerApi {
 }
 
 export const customerApi = new CustomerApi();
+export { API_BASE_URL };
