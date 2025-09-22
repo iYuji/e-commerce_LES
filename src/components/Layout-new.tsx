@@ -34,17 +34,17 @@ export default function Layout({ children }: LayoutProps) {
   const [userMenuAnchor, setUserMenuAnchor] = useState<null | HTMLElement>(
     null
   );
-  const [currentTheme, setCurrentTheme] = useState<"light" | "dark">("dark");
+  const [currentTheme, setCurrentTheme] = useState<"light" | "dark">(
+    Store.getTheme ? Store.getTheme() : "light"
+  );
 
   useEffect(() => {
-    // Define tema inicial como escuro se não houver tema salvo
-    const savedTheme = Store.getTheme();
-    if (!savedTheme || savedTheme === "light") {
-      Store.setTheme("dark");
-      setCurrentTheme("dark");
-    } else {
-      setCurrentTheme(savedTheme);
-    }
+    const handleThemeChange = () => {
+      setCurrentTheme(Store.getTheme ? Store.getTheme() : "light");
+    };
+
+    window.addEventListener("theme:change", handleThemeChange);
+    return () => window.removeEventListener("theme:change", handleThemeChange);
   }, []);
 
   const handleAdminMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
@@ -66,12 +66,11 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const handleThemeToggle = () => {
-    // Alterna diretamente o tema
-    const newTheme = currentTheme === "light" ? "dark" : "light";
-
-    Store.setTheme(newTheme);
-    setCurrentTheme(newTheme);
+    if (Store.toggleTheme) {
+      Store.toggleTheme();
+    }
   };
+
   return (
     <ThemeProvider theme={getAppTheme(currentTheme)}>
       <CssBaseline />
@@ -175,7 +174,7 @@ export default function Layout({ children }: LayoutProps) {
           </Toolbar>
         </AppBar>
 
-        <Container component="main" sx={{ flex: 1, py: 4, px: 3 }}>
+        <Container component="main" sx={{ flex: 1, py: 4 }}>
           {children}
         </Container>
       </Box>
