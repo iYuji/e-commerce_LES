@@ -53,21 +53,35 @@ const Catalogo: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
   useEffect(() => {
-    // Limpar cartas antigas e recriar com novas URLs
-    localStorage.removeItem("cards");
+    // Garantir que os dados estejam inicializados
     Store.ensureSeed();
 
-    const loadedCards = Store.getCards();
-    setCards(loadedCards);
-    setFilteredCards(loadedCards);
+    const loadCards = () => {
+      const loadedCards = Store.getCards();
+      setCards(loadedCards);
+      setFilteredCards(loadedCards);
 
-    // Calcular range de preços automático
-    if (loadedCards.length > 0) {
-      const prices = loadedCards.map((card: CardType) => card.price);
-      const minPrice = Math.min(...prices);
-      const maxPrice = Math.max(...prices);
-      setPriceRange([minPrice, maxPrice]);
-    }
+      // Calcular range de preços automático
+      if (loadedCards.length > 0) {
+        const prices = loadedCards.map((card: CardType) => card.price);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        setPriceRange([minPrice, maxPrice]);
+      }
+    };
+
+    loadCards();
+
+    // Adicionar listener para mudanças no estoque
+    const handleStockChange = () => {
+      loadCards();
+    };
+
+    window.addEventListener("stock:change", handleStockChange);
+
+    return () => {
+      window.removeEventListener("stock:change", handleStockChange);
+    };
   }, []);
   useEffect(() => {
     let filtered = cards;

@@ -36,11 +36,26 @@ const CardDetail: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
   useEffect(() => {
-    if (id) {
-      const cards = Store.getCards();
-      const foundCard = cards.find((c: CardType) => c.id === id);
-      setCard(foundCard || null);
-    }
+    const loadCard = () => {
+      if (id) {
+        const cards = Store.getCards();
+        const foundCard = cards.find((c: CardType) => c.id === id);
+        setCard(foundCard || null);
+      }
+    };
+
+    loadCard();
+
+    // Adicionar listener para mudanças no estoque
+    const handleStockChange = () => {
+      loadCard();
+    };
+
+    window.addEventListener("stock:change", handleStockChange);
+
+    return () => {
+      window.removeEventListener("stock:change", handleStockChange);
+    };
   }, [id]);
 
   const handleAddToCart = () => {
