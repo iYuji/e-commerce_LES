@@ -178,11 +178,13 @@ const MeusPedidos: React.FC = () => {
       Status: ${statusLabels[order.status]}
       
       Endereço de Entrega:
-      ${order.shippingAddress.firstName} ${order.shippingAddress.lastName}
+      ${
+        order.shippingAddress
+          ? `${order.shippingAddress.firstName} ${order.shippingAddress.lastName}
       ${order.shippingAddress.address}
-      ${order.shippingAddress.city}, ${order.shippingAddress.state} - ${
-      order.shippingAddress.zipCode
-    }
+      ${order.shippingAddress.city}, ${order.shippingAddress.state} - ${order.shippingAddress.zipCode}`
+          : "Não disponível"
+      }
     `;
 
     const blob = new Blob([invoice], { type: "text/plain" });
@@ -436,37 +438,57 @@ const MeusPedidos: React.FC = () => {
                     </AccordionSummary>
                     <AccordionDetails>
                       <List>
-                        {order.items.map((item, index) => (
-                          <ListItem key={index} sx={{ px: 0 }}>
-                            <ListItemText
-                              primary={
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                  }}
-                                >
-                                  <Typography>
-                                    {item.card.name} × {item.quantity}
-                                  </Typography>
-                                  <Typography fontWeight="bold">
-                                    R${" "}
-                                    {(item.card.price * item.quantity).toFixed(
-                                      2
-                                    )}
-                                  </Typography>
-                                </Box>
-                              }
-                              secondary={
-                                <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                                  <Chip label={item.card.type} size="small" />
-                                  <Chip label={item.card.rarity} size="small" />
-                                </Box>
-                              }
-                            />
-                          </ListItem>
-                        ))}
+                        {order.items.map((item, index) => {
+                          // Verificar se o card existe
+                          if (!item.card) {
+                            return (
+                              <ListItem key={index} sx={{ px: 0 }}>
+                                <ListItemText
+                                  primary={
+                                    <Typography color="text.secondary">
+                                      Produto não disponível × {item.quantity}
+                                    </Typography>
+                                  }
+                                />
+                              </ListItem>
+                            );
+                          }
+
+                          return (
+                            <ListItem key={index} sx={{ px: 0 }}>
+                              <ListItemText
+                                primary={
+                                  <Box
+                                    sx={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "center",
+                                    }}
+                                  >
+                                    <Typography>
+                                      {item.card.name} × {item.quantity}
+                                    </Typography>
+                                    <Typography fontWeight="bold">
+                                      R${" "}
+                                      {(
+                                        item.card.price * item.quantity
+                                      ).toFixed(2)}
+                                    </Typography>
+                                  </Box>
+                                }
+                                secondary={
+                                  <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
+                                    <Chip label={item.card.type} size="small" />
+                                    <Chip
+                                      label={item.card.rarity}
+                                      size="small"
+                                    />
+                                  </Box>
+                                }
+                              />
+                            </ListItem>
+                          );
+                        })}
                       </List>
                     </AccordionDetails>
                   </Accordion>
@@ -509,7 +531,9 @@ const MeusPedidos: React.FC = () => {
                 </Typography>
                 <Typography variant="body2" gutterBottom>
                   <strong>Método de Pagamento:</strong>{" "}
-                  {selectedOrder.paymentMethod}
+                  {selectedOrder.paymentInfo?.method ||
+                    (selectedOrder as any).paymentMethod ||
+                    "Não informado"}
                 </Typography>
                 {selectedOrder.estimatedDelivery && (
                   <Typography variant="body2" gutterBottom>
@@ -525,18 +549,24 @@ const MeusPedidos: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   Endereço de Entrega
                 </Typography>
-                <Typography variant="body2">
-                  {selectedOrder.shippingAddress.firstName}{" "}
-                  {selectedOrder.shippingAddress.lastName}
-                  <br />
-                  {selectedOrder.shippingAddress.address}
-                  <br />
-                  {selectedOrder.shippingAddress.city},{" "}
-                  {selectedOrder.shippingAddress.state} -{" "}
-                  {selectedOrder.shippingAddress.zipCode}
-                  <br />
-                  {selectedOrder.shippingAddress.phone}
-                </Typography>
+                {selectedOrder.shippingAddress ? (
+                  <Typography variant="body2">
+                    {selectedOrder.shippingAddress.firstName}{" "}
+                    {selectedOrder.shippingAddress.lastName}
+                    <br />
+                    {selectedOrder.shippingAddress.address}
+                    <br />
+                    {selectedOrder.shippingAddress.city},{" "}
+                    {selectedOrder.shippingAddress.state} -{" "}
+                    {selectedOrder.shippingAddress.zipCode}
+                    <br />
+                    {selectedOrder.shippingAddress.phone}
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" color="text.secondary">
+                    Endereço não disponível
+                  </Typography>
+                )}
               </Grid>
 
               <Grid item xs={12}>
@@ -556,24 +586,42 @@ const MeusPedidos: React.FC = () => {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {selectedOrder.items.map((item, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{item.card.name}</TableCell>
-                          <TableCell>
-                            <Chip label={item.card.type} size="small" />
-                          </TableCell>
-                          <TableCell>
-                            <Chip label={item.card.rarity} size="small" />
-                          </TableCell>
-                          <TableCell align="center">{item.quantity}</TableCell>
-                          <TableCell align="right">
-                            R$ {item.card.price.toFixed(2)}
-                          </TableCell>
-                          <TableCell align="right">
-                            R$ {(item.card.price * item.quantity).toFixed(2)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {selectedOrder.items.map((item, index) => {
+                        // Verificar se o card existe
+                        if (!item.card) {
+                          return (
+                            <TableRow key={index}>
+                              <TableCell colSpan={6}>
+                                <Typography color="text.secondary">
+                                  Produto não disponível (Quantidade:{" "}
+                                  {item.quantity})
+                                </Typography>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        }
+
+                        return (
+                          <TableRow key={index}>
+                            <TableCell>{item.card.name}</TableCell>
+                            <TableCell>
+                              <Chip label={item.card.type} size="small" />
+                            </TableCell>
+                            <TableCell>
+                              <Chip label={item.card.rarity} size="small" />
+                            </TableCell>
+                            <TableCell align="center">
+                              {item.quantity}
+                            </TableCell>
+                            <TableCell align="right">
+                              R$ {item.card.price.toFixed(2)}
+                            </TableCell>
+                            <TableCell align="right">
+                              R$ {(item.card.price * item.quantity).toFixed(2)}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                       <TableRow>
                         <TableCell colSpan={5}>
                           <Typography variant="h6">Total do Pedido</Typography>

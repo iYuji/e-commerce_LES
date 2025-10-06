@@ -23,11 +23,31 @@ import {
   Chip,
   Alert,
   CircularProgress,
+  IconButton,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
 } from "@mui/material";
-import { CreditCard, Security, CheckCircle } from "@mui/icons-material";
+import {
+  CreditCard,
+  Security,
+  CheckCircle,
+  Delete,
+  Add,
+} from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import * as Store from "../store/index";
-import { CartItem, Order } from "../types";
+import {
+  CartItem,
+  Order,
+  Address as AddressType,
+  Coupon,
+  CreditCardPayment,
+} from "../types";
+import AddressManager from "../components/AddressManager";
+import CreditCardManager from "../components/CreditCardManager";
 
 const steps = [
   "Endereço de Entrega",
@@ -61,8 +81,22 @@ const Checkout: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState("");
+  const [customerId, setCustomerId] = useState<string>("");
 
-  // Dados do endereço
+  // Cupons aplicados (carregados do carrinho)
+  const [appliedPromotionalCoupon, setAppliedPromotionalCoupon] =
+    useState<Coupon | null>(null);
+  const [appliedExchangeCoupons, setAppliedExchangeCoupons] = useState<
+    Coupon[]
+  >([]);
+
+  // Modo de entrada de endereço: 'select' ou 'manual'
+  const [addressMode, setAddressMode] = useState<"select" | "manual">("select");
+  const [selectedAddress, setSelectedAddress] = useState<AddressType | null>(
+    null
+  );
+
+  // Dados do endereço manual
   const [address, setAddress] = useState<Address>({
     firstName: "",
     lastName: "",
@@ -78,6 +112,13 @@ const Checkout: React.FC = () => {
     method: "credit",
   });
 
+  // Modo de seleção de cartão: 'select', 'manual' ou 'multiple'
+  const [cardMode, setCardMode] = useState<"select" | "manual" | "multiple">(
+    "select"
+  );
+  const [selectedCards, setSelectedCards] = useState<CreditCardPayment[]>([]);
+  const [selectedCardId, setSelectedCardId] = useState<string>("");
+
   // Opções de entrega
   const [shippingOption, setShippingOption] = useState("standard");
 
@@ -92,11 +133,37 @@ const Checkout: React.FC = () => {
     if (cart.length === 0) {
       navigate("/catalogo");
     }
+
+    // Obter customer ID da sessão
+    const session = Store.getSession();
+    if (session?.user?.id) {
+      setCustomerId(session.user.id);
+    }
+
+    // Carregar cupons aplicados do localStorage
+    const savedCoupons = localStorage.getItem("appliedCoupons");
+    if (savedCoupons) {
+      const { promotional, exchange } = JSON.parse(savedCoupons);
+      setAppliedPromotionalCoupon(promotional);
+      setAppliedExchangeCoupons(exchange || []);
+    }
   }, [navigate]);
 
   const validateAddress = (): boolean => {
     const errors: Partial<Address> = {};
 
+    // Se estiver em modo de seleção, verificar se um endereço foi selecionado
+    if (addressMode === "select") {
+      if (!selectedAddress) {
+        alert(
+          "Por favor, selecione um endereço ou escolha digitar manualmente."
+        );
+        return false;
+      }
+      return true;
+    }
+
+    // Validação para modo manual
     if (!address.firstName.trim()) errors.firstName = "Nome é obrigatório";
     if (!address.lastName.trim()) errors.lastName = "Sobrenome é obrigatório";
     if (!address.address.trim()) errors.address = "Endereço é obrigatório";
@@ -122,7 +189,78 @@ const Checkout: React.FC = () => {
   const validatePayment = (): boolean => {
     const errors: Partial<PaymentInfo> = {};
 
-    if (paymentInfo.method === "credit" || paymentInfo.method === "debit") {
+    // Validação para cartão de crédito
+    if (paymentInfo.method === "credit") {
+      // Se está no modo de seleção, verificar se há cartão selecionado
+      if (cardMode === "select") {
+        if (selectedCards.length === 0) {
+          alert(
+            "Por favor, selecione um cartão ou escolha outra opção de pagamento."
+          );
+          return false;
+        }
+        return true; // Cartão selecionado, validação OK
+      }
+
+      // Se está no modo múltiplos cartões, verificar se há cartões adicionados
+      if (cardMode === "multiple") {
+        if (selectedCards.length === 0) {
+          alert("Por favor, adicione pelo menos um cartão ao pagamento.");
+          return false;
+        }
+        // Verificar se a soma dos valores dos cartões cobre o total
+        const totalPaid = selectedCards.reduce(
+          (sum, card) => sum + card.amount,
+          0
+        );
+        const orderTotal =
+          calculateSubtotal() + getShippingCost() - calculateTotalDiscount();
+        if (Math.abs(totalPaid - orderTotal) > 0.01) {
+          alert(
+            `O total dos cartões (R$ ${totalPaid.toFixed(
+              2
+            )}) deve ser igual ao valor do pedido (R$ ${orderTotal.toFixed(2)})`
+          );
+          return false;
+        }
+        return true;
+      }
+
+      // Modo manual - validar campos
+      if (cardMode === "manual") {
+        if (!paymentInfo.cardNumber?.trim())
+          errors.cardNumber = "Número do cartão é obrigatório";
+        if (!paymentInfo.cardName?.trim())
+          errors.cardName = "Nome no cartão é obrigatório";
+        if (!paymentInfo.expiryDate?.trim())
+          errors.expiryDate = "Data de validade é obrigatória";
+        if (!paymentInfo.cvv?.trim()) errors.cvv = "CVV é obrigatório";
+
+        // Validação de formato do cartão
+        if (
+          paymentInfo.cardNumber &&
+          !/^\d{4}\s\d{4}\s\d{4}\s\d{4}$/.test(paymentInfo.cardNumber)
+        ) {
+          errors.cardNumber = "Cartão deve ter o formato 0000 0000 0000 0000";
+        }
+
+        // Validação de data de validade
+        if (
+          paymentInfo.expiryDate &&
+          !/^\d{2}\/\d{2}$/.test(paymentInfo.expiryDate)
+        ) {
+          errors.expiryDate = "Data deve ter o formato MM/AA";
+        }
+
+        // Validação de CVV
+        if (paymentInfo.cvv && !/^\d{3,4}$/.test(paymentInfo.cvv)) {
+          errors.cvv = "CVV deve ter 3 ou 4 dígitos";
+        }
+      }
+    }
+
+    // Validação para cartão de débito (sempre manual)
+    if (paymentInfo.method === "debit") {
       if (!paymentInfo.cardNumber?.trim())
         errors.cardNumber = "Número do cartão é obrigatório";
       if (!paymentInfo.cardName?.trim())
@@ -131,7 +269,7 @@ const Checkout: React.FC = () => {
         errors.expiryDate = "Data de validade é obrigatória";
       if (!paymentInfo.cvv?.trim()) errors.cvv = "CVV é obrigatório";
 
-      // Validação de cartão de crédito
+      // Validação de formato do cartão
       if (
         paymentInfo.cardNumber &&
         !/^\d{4}\s\d{4}\s\d{4}\s\d{4}$/.test(paymentInfo.cardNumber)
@@ -187,10 +325,6 @@ const Checkout: React.FC = () => {
     }
   };
 
-  const calculateTotal = () => {
-    return calculateSubtotal() + getShippingCost();
-  };
-
   const handleNext = () => {
     if (activeStep === 0 && !validateAddress()) return;
     if (activeStep === 1 && !validatePayment()) return;
@@ -208,13 +342,59 @@ const Checkout: React.FC = () => {
     // Simular processamento do pagamento
     await new Promise((resolve) => setTimeout(resolve, 2000));
 
+    // Determinar qual endereço usar
+    const shippingAddress: AddressType =
+      addressMode === "select" && selectedAddress
+        ? selectedAddress
+        : {
+            id: `temp-${Date.now()}`,
+            customerId: customerId || "guest",
+            ...address,
+          };
+
+    // Calcular valores
+    const subtotal = calculateSubtotal();
+    const shippingCost = getShippingCost();
+    const discountAmount = calculateTotalDiscount();
+    const total = subtotal + shippingCost - discountAmount;
+
+    // Preparar cupons aplicados
+    const appliedCoupons = [
+      ...(appliedPromotionalCoupon
+        ? [
+            {
+              couponId: appliedPromotionalCoupon.id,
+              code: appliedPromotionalCoupon.code,
+              discount: appliedPromotionalCoupon.discount,
+              type: appliedPromotionalCoupon.type,
+              category: appliedPromotionalCoupon.category,
+            },
+          ]
+        : []),
+      ...appliedExchangeCoupons.map((c) => ({
+        couponId: c.id,
+        code: c.code,
+        discount: c.discount,
+        type: c.type,
+        category: c.category,
+      })),
+    ];
+
     const order: Omit<Order, "id"> = {
-      customerId: "current-user", // Substituir pela ID do usuário atual
+      customerId: customerId || "guest",
       items: cartItems,
-      total: calculateTotal(),
-      status: "processing",
-      shippingAddress: address,
-      paymentMethod: paymentInfo.method,
+      subtotal,
+      discountAmount,
+      shippingCost,
+      total,
+      status: "pending",
+      shippingAddress,
+      paymentInfo: {
+        method: paymentInfo.method,
+        creditCards: selectedCards.length > 0 ? selectedCards : undefined,
+        totalAmount: total,
+      },
+      appliedCoupons,
       createdAt: new Date().toISOString(),
       estimatedDelivery: new Date(
         Date.now() +
@@ -232,9 +412,35 @@ const Checkout: React.FC = () => {
 
     const newOrderId = Store.addOrder(order);
     Store.clearCart();
+    localStorage.removeItem("appliedCoupons"); // Limpar cupons aplicados
     setOrderId(newOrderId);
     setOrderComplete(true);
     setLoading(false);
+  };
+
+  const calculateTotalDiscount = () => {
+    let totalDiscount = 0;
+    const subtotal = calculateSubtotal();
+
+    // Aplicar cupons de troca
+    appliedExchangeCoupons.forEach((coupon) => {
+      if (coupon.type === "percentage") {
+        totalDiscount += (subtotal * coupon.discount) / 100;
+      } else {
+        totalDiscount += coupon.discount;
+      }
+    });
+
+    // Aplicar cupom promocional
+    if (appliedPromotionalCoupon) {
+      if (appliedPromotionalCoupon.type === "percentage") {
+        totalDiscount += (subtotal * appliedPromotionalCoupon.discount) / 100;
+      } else {
+        totalDiscount += appliedPromotionalCoupon.discount;
+      }
+    }
+
+    return totalDiscount;
   };
 
   const formatCardNumber = (value: string) => {
@@ -294,93 +500,144 @@ const Checkout: React.FC = () => {
   }
 
   const renderAddressForm = () => (
-    <Grid container spacing={3}>
-      <Grid item xs={12} sm={6}>
-        <TextField
-          required
-          fullWidth
-          label="Nome"
-          value={address.firstName}
-          onChange={(e) =>
-            setAddress({ ...address, firstName: e.target.value })
-          }
-          error={!!addressErrors.firstName}
-          helperText={addressErrors.firstName}
+    <Box>
+      {/* Opção de selecionar modo */}
+      <Box sx={{ mb: 3 }}>
+        <FormControl component="fieldset">
+          <FormLabel component="legend">
+            Como deseja informar o endereço?
+          </FormLabel>
+          <RadioGroup
+            row
+            value={addressMode}
+            onChange={(e) =>
+              setAddressMode(e.target.value as "select" | "manual")
+            }
+          >
+            <FormControlLabel
+              value="select"
+              control={<Radio />}
+              label="Usar endereço salvo"
+            />
+            <FormControlLabel
+              value="manual"
+              control={<Radio />}
+              label="Digitar manualmente"
+            />
+          </RadioGroup>
+        </FormControl>
+      </Box>
+
+      {/* Modo de seleção de endereço salvo */}
+      {addressMode === "select" && customerId && (
+        <AddressManager
+          customerId={customerId}
+          showSelection={true}
+          selectedAddressId={selectedAddress?.id}
+          onAddressSelect={(addr) => setSelectedAddress(addr)}
         />
-      </Grid>
-      <Grid item xs={12} sm={6}>
-        <TextField
-          required
-          fullWidth
-          label="Sobrenome"
-          value={address.lastName}
-          onChange={(e) => setAddress({ ...address, lastName: e.target.value })}
-          error={!!addressErrors.lastName}
-          helperText={addressErrors.lastName}
-        />
-      </Grid>
-      <Grid item xs={12}>
-        <TextField
-          required
-          fullWidth
-          label="Endereço"
-          value={address.address}
-          onChange={(e) => setAddress({ ...address, address: e.target.value })}
-          error={!!addressErrors.address}
-          helperText={addressErrors.address}
-        />
-      </Grid>
-      <Grid item xs={12} sm={6}>
-        <TextField
-          required
-          fullWidth
-          label="Cidade"
-          value={address.city}
-          onChange={(e) => setAddress({ ...address, city: e.target.value })}
-          error={!!addressErrors.city}
-          helperText={addressErrors.city}
-        />
-      </Grid>
-      <Grid item xs={12} sm={3}>
-        <TextField
-          required
-          fullWidth
-          label="Estado"
-          value={address.state}
-          onChange={(e) => setAddress({ ...address, state: e.target.value })}
-          error={!!addressErrors.state}
-          helperText={addressErrors.state}
-        />
-      </Grid>
-      <Grid item xs={12} sm={3}>
-        <TextField
-          required
-          fullWidth
-          label="CEP"
-          value={address.zipCode}
-          onChange={(e) =>
-            setAddress({ ...address, zipCode: formatZipCode(e.target.value) })
-          }
-          error={!!addressErrors.zipCode}
-          helperText={addressErrors.zipCode}
-          inputProps={{ maxLength: 9 }}
-        />
-      </Grid>
-      <Grid item xs={12}>
-        <TextField
-          required
-          fullWidth
-          label="Telefone"
-          value={address.phone}
-          onChange={(e) =>
-            setAddress({ ...address, phone: formatPhone(e.target.value) })
-          }
-          error={!!addressErrors.phone}
-          helperText={addressErrors.phone}
-          inputProps={{ maxLength: 15 }}
-        />
-      </Grid>
-    </Grid>
+      )}
+
+      {/* Modo manual */}
+      {addressMode === "manual" && (
+        <Grid container spacing={3}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              required
+              fullWidth
+              label="Nome"
+              value={address.firstName}
+              onChange={(e) =>
+                setAddress({ ...address, firstName: e.target.value })
+              }
+              error={!!addressErrors.firstName}
+              helperText={addressErrors.firstName}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              required
+              fullWidth
+              label="Sobrenome"
+              value={address.lastName}
+              onChange={(e) =>
+                setAddress({ ...address, lastName: e.target.value })
+              }
+              error={!!addressErrors.lastName}
+              helperText={addressErrors.lastName}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              required
+              fullWidth
+              label="Endereço"
+              value={address.address}
+              onChange={(e) =>
+                setAddress({ ...address, address: e.target.value })
+              }
+              error={!!addressErrors.address}
+              helperText={addressErrors.address}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              required
+              fullWidth
+              label="Cidade"
+              value={address.city}
+              onChange={(e) => setAddress({ ...address, city: e.target.value })}
+              error={!!addressErrors.city}
+              helperText={addressErrors.city}
+            />
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <TextField
+              required
+              fullWidth
+              label="Estado"
+              value={address.state}
+              onChange={(e) =>
+                setAddress({ ...address, state: e.target.value })
+              }
+              error={!!addressErrors.state}
+              helperText={addressErrors.state}
+            />
+          </Grid>
+          <Grid item xs={12} sm={3}>
+            <TextField
+              required
+              fullWidth
+              label="CEP"
+              value={address.zipCode}
+              onChange={(e) =>
+                setAddress({
+                  ...address,
+                  zipCode: formatZipCode(e.target.value),
+                })
+              }
+              error={!!addressErrors.zipCode}
+              helperText={addressErrors.zipCode}
+              inputProps={{ maxLength: 9 }}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              required
+              fullWidth
+              label="Telefone"
+              value={address.phone}
+              onChange={(e) =>
+                setAddress({ ...address, phone: formatPhone(e.target.value) })
+              }
+              error={!!addressErrors.phone}
+              helperText={addressErrors.phone}
+              inputProps={{ maxLength: 15 }}
+            />
+          </Grid>
+        </Grid>
+      )}
+    </Box>
   );
 
   const renderPaymentForm = () => (
@@ -389,14 +646,18 @@ const Checkout: React.FC = () => {
         <FormLabel component="legend">Forma de Pagamento</FormLabel>
         <RadioGroup
           value={paymentInfo.method}
-          onChange={(e) =>
-            setPaymentInfo({ ...paymentInfo, method: e.target.value as any })
-          }
+          onChange={(e) => {
+            setPaymentInfo({ ...paymentInfo, method: e.target.value as any });
+            // Resetar modo do cartão ao mudar método
+            if (e.target.value === "credit") {
+              setCardMode("select");
+            }
+          }}
         >
           <FormControlLabel
             value="credit"
             control={<Radio />}
-            label="Cartão de Crédito"
+            label="Cartão de Crédito (Aceita múltiplos cartões)"
           />
           <FormControlLabel
             value="debit"
@@ -412,7 +673,249 @@ const Checkout: React.FC = () => {
         </RadioGroup>
       </FormControl>
 
-      {(paymentInfo.method === "credit" || paymentInfo.method === "debit") && (
+      {/* Cartão de Crédito - Opção de múltiplos cartões */}
+      {paymentInfo.method === "credit" && (
+        <Box>
+          <FormControl component="fieldset" sx={{ mb: 2 }}>
+            <FormLabel component="legend">Como deseja pagar?</FormLabel>
+            <RadioGroup
+              row
+              value={cardMode}
+              onChange={(e) =>
+                setCardMode(e.target.value as "select" | "manual" | "multiple")
+              }
+            >
+              <FormControlLabel
+                value="select"
+                control={<Radio />}
+                label="Cartão salvo"
+              />
+              <FormControlLabel
+                value="manual"
+                control={<Radio />}
+                label="Novo cartão"
+              />
+              <FormControlLabel
+                value="multiple"
+                control={<Radio />}
+                label="Dividir em múltiplos cartões"
+              />
+            </RadioGroup>
+          </FormControl>
+
+          {cardMode === "select" && customerId && (
+            <CreditCardManager
+              customerId={customerId}
+              showSelection={true}
+              selectedCardId={selectedCardId}
+              onCardSelect={(card) => {
+                // Marcar cartão como selecionado visualmente
+                setSelectedCardId(card.id);
+                // Adicionar cartão à lista de pagamentos com valor total
+                setSelectedCards([
+                  {
+                    cardId: card.id,
+                    amount:
+                      calculateSubtotal() +
+                      getShippingCost() -
+                      calculateTotalDiscount(),
+                  },
+                ]);
+              }}
+            />
+          )}
+
+          {cardMode === "manual" && (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  label="Número do Cartão"
+                  value={paymentInfo.cardNumber || ""}
+                  onChange={(e) =>
+                    setPaymentInfo({
+                      ...paymentInfo,
+                      cardNumber: formatCardNumber(e.target.value),
+                    })
+                  }
+                  error={!!paymentErrors.cardNumber}
+                  helperText={paymentErrors.cardNumber}
+                  inputProps={{ maxLength: 19 }}
+                  InputProps={{
+                    startAdornment: (
+                      <CreditCard sx={{ mr: 1, color: "text.secondary" }} />
+                    ),
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  required
+                  fullWidth
+                  label="Nome no Cartão"
+                  value={paymentInfo.cardName || ""}
+                  onChange={(e) =>
+                    setPaymentInfo({ ...paymentInfo, cardName: e.target.value })
+                  }
+                  error={!!paymentErrors.cardName}
+                  helperText={paymentErrors.cardName}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  required
+                  fullWidth
+                  label="Data de Validade"
+                  placeholder="MM/AA"
+                  value={paymentInfo.expiryDate || ""}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, "");
+                    const formatted = value.replace(/(\d{2})(\d{2})/, "$1/$2");
+                    setPaymentInfo({ ...paymentInfo, expiryDate: formatted });
+                  }}
+                  error={!!paymentErrors.expiryDate}
+                  helperText={paymentErrors.expiryDate}
+                  inputProps={{ maxLength: 5 }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  required
+                  fullWidth
+                  label="CVV"
+                  value={paymentInfo.cvv || ""}
+                  onChange={(e) =>
+                    setPaymentInfo({
+                      ...paymentInfo,
+                      cvv: e.target.value.replace(/\D/g, ""),
+                    })
+                  }
+                  error={!!paymentErrors.cvv}
+                  helperText={paymentErrors.cvv}
+                  inputProps={{ maxLength: 4 }}
+                  InputProps={{
+                    startAdornment: (
+                      <Security sx={{ mr: 1, color: "text.secondary" }} />
+                    ),
+                  }}
+                />
+              </Grid>
+            </Grid>
+          )}
+
+          {cardMode === "multiple" && (
+            <Box>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Divida o pagamento entre vários cartões salvos ou cadastre
+                novos.
+              </Alert>
+
+              {customerId && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Cartões Adicionados ao Pagamento:
+                  </Typography>
+
+                  {selectedCards.length === 0 ? (
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                      Nenhum cartão adicionado. Clique em "Gerenciar Cartões"
+                      para adicionar.
+                    </Alert>
+                  ) : (
+                    <Table size="small" sx={{ mb: 2 }}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Cartão</TableCell>
+                          <TableCell align="right">Valor</TableCell>
+                          <TableCell align="right">Ações</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {selectedCards.map((card, index) => (
+                          <TableRow key={index}>
+                            <TableCell>
+                              {card.cardId
+                                ? `Cartão **** ${card.cardId.slice(-4)}`
+                                : "Novo Cartão"}
+                            </TableCell>
+                            <TableCell align="right">
+                              <TextField
+                                size="small"
+                                type="number"
+                                value={card.amount}
+                                onChange={(e) => {
+                                  const newCards = [...selectedCards];
+                                  newCards[index].amount =
+                                    parseFloat(e.target.value) || 0;
+                                  setSelectedCards(newCards);
+                                }}
+                                InputProps={{
+                                  startAdornment: "R$",
+                                }}
+                                sx={{ width: 120 }}
+                              />
+                            </TableCell>
+                            <TableCell align="right">
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => {
+                                  setSelectedCards(
+                                    selectedCards.filter((_, i) => i !== index)
+                                  );
+                                }}
+                              >
+                                <Delete />
+                              </IconButton>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+
+                  <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Add />}
+                      onClick={() => {
+                        // Adicionar placeholder para novo cartão
+                        const totalPaid = selectedCards.reduce(
+                          (sum, c) => sum + c.amount,
+                          0
+                        );
+                        const remaining =
+                          calculateSubtotal() +
+                          getShippingCost() -
+                          calculateTotalDiscount() -
+                          totalPaid;
+                        setSelectedCards([
+                          ...selectedCards,
+                          {
+                            cardId: undefined,
+                            amount: Math.max(0, remaining),
+                          },
+                        ]);
+                      }}
+                    >
+                      Adicionar Cartão
+                    </Button>
+                  </Box>
+
+                  <CreditCardManager
+                    customerId={customerId}
+                    showSelection={false}
+                  />
+                </>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+
+      {/* Cartão de Débito - Formulário simplificado */}
+      {paymentInfo.method === "debit" && (
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <TextField
@@ -600,14 +1103,61 @@ const Checkout: React.FC = () => {
           Endereço de Entrega
         </Typography>
         <Typography variant="body2">
-          {address.firstName} {address.lastName}
-          <br />
-          {address.address}
-          <br />
-          {address.city}, {address.state} - {address.zipCode}
-          <br />
-          {address.phone}
+          {addressMode === "select" && selectedAddress ? (
+            <>
+              {selectedAddress.firstName} {selectedAddress.lastName}
+              <br />
+              {selectedAddress.address}
+              <br />
+              {selectedAddress.city}, {selectedAddress.state} -{" "}
+              {selectedAddress.zipCode}
+              <br />
+              {selectedAddress.phone}
+            </>
+          ) : (
+            <>
+              {address.firstName} {address.lastName}
+              <br />
+              {address.address}
+              <br />
+              {address.city}, {address.state} - {address.zipCode}
+              <br />
+              {address.phone}
+            </>
+          )}
         </Typography>
+
+        {/* Mostrar cupons aplicados */}
+        {(appliedPromotionalCoupon || appliedExchangeCoupons.length > 0) && (
+          <>
+            <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+              Cupons Aplicados
+            </Typography>
+            {appliedPromotionalCoupon && (
+              <Chip
+                label={`${appliedPromotionalCoupon.code} - ${
+                  appliedPromotionalCoupon.type === "percentage"
+                    ? `${appliedPromotionalCoupon.discount}%`
+                    : `R$ ${appliedPromotionalCoupon.discount}`
+                }`}
+                color="success"
+                sx={{ mr: 1, mb: 1 }}
+              />
+            )}
+            {appliedExchangeCoupons.map((coupon) => (
+              <Chip
+                key={coupon.id}
+                label={`${coupon.code} - ${
+                  coupon.type === "percentage"
+                    ? `${coupon.discount}%`
+                    : `R$ ${coupon.discount}`
+                }`}
+                color="info"
+                sx={{ mr: 1, mb: 1 }}
+              />
+            ))}
+          </>
+        )}
 
         <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
           Forma de Pagamento
@@ -634,6 +1184,17 @@ const Checkout: React.FC = () => {
               <Typography>Subtotal:</Typography>
               <Typography>R$ {calculateSubtotal().toFixed(2)}</Typography>
             </Box>
+            {(appliedPromotionalCoupon ||
+              appliedExchangeCoupons.length > 0) && (
+              <Box
+                sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
+              >
+                <Typography color="success.main">Descontos:</Typography>
+                <Typography color="success.main">
+                  -R$ {calculateTotalDiscount().toFixed(2)}
+                </Typography>
+              </Box>
+            )}
             <Box
               sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}
             >
@@ -644,7 +1205,12 @@ const Checkout: React.FC = () => {
             <Box sx={{ display: "flex", justifyContent: "space-between" }}>
               <Typography variant="h6">Total:</Typography>
               <Typography variant="h6" color="primary">
-                R$ {calculateTotal().toFixed(2)}
+                R${" "}
+                {(
+                  calculateSubtotal() +
+                  getShippingCost() -
+                  calculateTotalDiscount()
+                ).toFixed(2)}
               </Typography>
             </Box>
           </CardContent>

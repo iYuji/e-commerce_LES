@@ -188,6 +188,7 @@ export function ensureSeed(): void {
         code: "WELCOME10",
         discount: 10,
         type: "percentage",
+        category: "promotional",
         expiresAt: "2025-12-31",
         isActive: true,
       },
