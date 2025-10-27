@@ -155,7 +155,10 @@ const AdminPedidos: React.FC = () => {
   };
 
   const handleUpdateOrderStatus = (orderId: string, newStatus: string) => {
+    // Buscar todos os pedidos do sistema
     const allOrders = Store.getOrders();
+
+    // Encontrar o índice do pedido que queremos atualizar
     const orderIndex = allOrders.findIndex((o) => o.id === orderId);
 
     if (orderIndex === -1) {
@@ -163,16 +166,29 @@ const AdminPedidos: React.FC = () => {
       return;
     }
 
+    console.log(`🔄 Mudando status do pedido ${orderId}:`);
+    console.log(`   De: ${allOrders[orderIndex].status}`);
+    console.log(`   Para: ${newStatus}`);
+
+    // Atualizar o status do pedido
     allOrders[orderIndex].status = newStatus as Order["status"];
+
+    // Salvar no localStorage
     Store.writeStore(Store.STORE_KEYS.orders, allOrders);
 
+    // Disparar evento para outros componentes saberem da mudança
+    console.log("📢 Disparando evento orders:updated...");
+    window.dispatchEvent(new CustomEvent("orders:updated"));
+
+    // Recarregar dados locais
     loadData();
+
     showSnackbar(
       `Pedido ${getStatusLabel(newStatus).toLowerCase()} com sucesso!`,
       "success"
     );
 
-    // Atualizar ordem selecionada se estiver aberta
+    // Se o diálogo de detalhes estiver aberto, atualizar o pedido selecionado
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(allOrders[orderIndex]);
     }

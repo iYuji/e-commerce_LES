@@ -24,6 +24,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Alert,
 } from "@mui/material";
 import {
   Visibility,
@@ -31,6 +32,10 @@ import {
   TrendingUp,
   TrendingDown,
   Timeline,
+  CheckCircle,
+  LocalShipping,
+  Payment,
+  Cancel,
 } from "@mui/icons-material";
 import * as Store from "../../store/index";
 import { Order, Card as CardType, Customer } from "../../types";
@@ -38,55 +43,92 @@ import { Order, Card as CardType, Customer } from "../../types";
 const ITEMS_PER_PAGE = 10;
 
 const AdminVendas: React.FC = () => {
+  // ============================================
+  // ESTADOS DO COMPONENTE
+  // ============================================
+
+  // Estados para armazenar os dados carregados do sistema
   const [orders, setOrders] = useState<Order[]>([]);
   const [cards, setCards] = useState<CardType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+
+  // Estados para controle de filtros e paginação
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [page, setPage] = useState(0);
   const [statusFilter, setStatusFilter] = useState("");
   const [periodFilter, setPeriodFilter] = useState("all");
+
+  // Estados para controle do dialog de detalhes
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  // MUDANÇA 1: useEffect agora escuta o evento orders:updated
+  // ============================================
+  // EFEITOS E CARREGAMENTO DE DADOS
+  // ============================================
+
+  /**
+   * Este useEffect é executado apenas uma vez quando o componente é montado.
+   * Ele carrega os dados iniciais e configura um listener para escutar
+   * atualizações em tempo real quando pedidos são criados/modificados
+   * em outras partes do sistema.
+   */
   useEffect(() => {
     loadData();
 
     // Listener para recarregar quando houver novos pedidos
+    // Isso garante que o painel se atualiza automaticamente quando:
+    // - Um novo pedido é criado na área do cliente
+    // - Um pedido é atualizado no AdminPedidos
     const handleOrdersUpdate = () => {
       console.log("🔄 AdminVendas: Pedidos atualizados, recarregando...");
       loadData();
     };
 
-    // Registrar o listener
+    // Registrar o listener no sistema de eventos do navegador
     window.addEventListener("orders:updated", handleOrdersUpdate);
 
     // Cleanup: remover listener quando componente desmontar
+    // Isso previne memory leaks e erros quando o componente é destruído
     return () => {
       window.removeEventListener("orders:updated", handleOrdersUpdate);
     };
-  }, []);
+  }, []); // Array vazio = executa apenas uma vez na montagem
 
-  // MUDANÇA 2: loadData com logs detalhados
+  /**
+   * Este useEffect aplica os filtros sempre que os dados ou
+   * configurações de filtro mudam. É como um "processador automático"
+   * que reage a mudanças e atualiza a lista filtrada.
+   */
+  useEffect(() => {
+    applyFilters();
+  }, [orders, statusFilter, periodFilter]);
+
+  /**
+   * Função que carrega todos os dados necessários do localStorage.
+   * Usamos logs detalhados para facilitar o debug e entender
+   * o que está acontecendo no sistema.
+   */
   const loadData = () => {
     const loadedOrders = Store.getOrders();
     const loadedCards = Store.getCards();
     const loadedCustomers = Store.getCustomers();
 
-    // Logs para debug - ajudam a identificar problemas
     console.log("📊 AdminVendas - Carregando dados:");
     console.log("  📦 Total de pedidos:", loadedOrders.length);
     console.log("  🎴 Total de cartas:", loadedCards.length);
     console.log("  👥 Total de clientes:", loadedCustomers.length);
 
-    // Mostrar informações do último pedido criado
+    // Log dos últimos 3 pedidos para debug
     if (loadedOrders.length > 0) {
-      console.log("  🔍 Último pedido:", {
-        id: loadedOrders[loadedOrders.length - 1].id,
-        customerId: loadedOrders[loadedOrders.length - 1].customerId,
-        total: loadedOrders[loadedOrders.length - 1].total,
-        status: loadedOrders[loadedOrders.length - 1].status,
-      });
+      console.log(
+        "  🔍 Últimos 3 pedidos:",
+        loadedOrders.slice(-3).map((o) => ({
+          id: o.id,
+          customerId: o.customerId,
+          total: o.total,
+          status: o.status,
+        }))
+      );
     }
 
     setOrders(loadedOrders);
@@ -94,17 +136,27 @@ const AdminVendas: React.FC = () => {
     setCustomers(loadedCustomers);
   };
 
+  /**
+   * Aplica os filtros de status e período aos pedidos.
+   * Esta função implementa uma lógica de filtragem em múltiplas etapas:
+   * 1. Filtra por status (se selecionado)
+   * 2. Filtra por período de tempo (se selecionado)
+   * 3. Ordena por data (mais recentes primeiro)
+   */
   const applyFilters = () => {
     let filtered = orders;
 
+    // Filtro de status
     if (statusFilter) {
       filtered = filtered.filter((order) => order.status === statusFilter);
     }
 
+    // Filtro de período
     if (periodFilter !== "all") {
       const now = new Date();
       const filterDate = new Date();
 
+      // Calcula a data de corte baseada no período selecionado
       switch (periodFilter) {
         case "today":
           filterDate.setHours(0, 0, 0, 0);
@@ -123,39 +175,57 @@ const AdminVendas: React.FC = () => {
           break;
       }
 
+      // Filtra pedidos que são mais recentes que a data de corte
       filtered = filtered.filter(
         (order) => new Date(order.createdAt) >= filterDate
       );
     }
 
     setFilteredOrders(filtered);
-    setPage(0);
+    setPage(0); // Resetar para primeira página quando filtros mudam
   };
 
+  // ============================================
+  // FUNÇÕES AUXILIARES
+  // ============================================
+
+  /**
+   * Busca o nome do cliente pelo ID.
+   * Retorna "Cliente Desconhecido" se não encontrar (dados inconsistentes).
+   */
   const getCustomerName = (customerId: string) => {
     const customer = customers.find((c) => c.id === customerId);
     return customer ? customer.name : "Cliente Desconhecido";
   };
 
+  /**
+   * Retorna a cor do chip baseada no status do pedido.
+   * Usamos cores semânticas do Material-UI para facilitar
+   * a identificação visual rápida do status.
+   */
   const getOrderStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case "pending":
-        return "warning";
+        return "warning"; // Amarelo - precisa atenção
       case "confirmed":
-        return "info";
+        return "info"; // Azul - informativo
       case "processing":
-        return "primary";
+        return "primary"; // Azul primário - em andamento
       case "shipped":
-        return "secondary";
+        return "secondary"; // Roxo - aguardando entrega
       case "delivered":
-        return "success";
+        return "success"; // Verde - sucesso
       case "cancelled":
-        return "error";
+        return "error"; // Vermelho - problema
       default:
-        return "default";
+        return "default"; // Cinza - desconhecido
     }
   };
 
+  /**
+   * Converte o status técnico (em inglês) para um label
+   * amigável em português para exibir ao usuário.
+   */
   const getOrderStatusLabel = (status: string) => {
     const labels: { [key: string]: string } = {
       pending: "Pendente",
@@ -168,11 +238,63 @@ const AdminVendas: React.FC = () => {
     return labels[status.toLowerCase()] || status;
   };
 
+  /**
+   * NOVA FUNÇÃO: Atualiza o status de um pedido.
+   * Esta função é crucial para o gerenciamento de pedidos e liberação de trocas.
+   * Ela faz várias coisas importantes:
+   * 1. Busca o pedido no localStorage
+   * 2. Atualiza seu status
+   * 3. Salva de volta no localStorage
+   * 4. Notifica outros componentes da mudança
+   * 5. Atualiza a UI local
+   */
+  const handleUpdateOrderStatus = (orderId: string, newStatus: string) => {
+    const allOrders = Store.getOrders();
+    const orderIndex = allOrders.findIndex((o) => o.id === orderId);
+
+    if (orderIndex === -1) {
+      console.error("❌ Pedido não encontrado");
+      return;
+    }
+
+    console.log(`📝 Atualizando status do pedido ${orderId}:`);
+    console.log(`   De: ${allOrders[orderIndex].status}`);
+    console.log(`   Para: ${newStatus}`);
+
+    // Atualizar o status do pedido
+    allOrders[orderIndex].status = newStatus as Order["status"];
+
+    // Salvar no localStorage
+    Store.writeStore(Store.STORE_KEYS.orders, allOrders);
+
+    // Disparar evento para outros componentes saberem da mudança
+    // Isso garante que AdminPedidos, AdminTrocas, etc. sejam atualizados
+    console.log("📢 Disparando evento orders:updated...");
+    window.dispatchEvent(new CustomEvent("orders:updated"));
+
+    // Recarregar dados locais
+    loadData();
+
+    // Se o dialog de detalhes estiver aberto, atualizar o pedido selecionado
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder(allOrders[orderIndex]);
+    }
+
+    console.log("✅ Status atualizado com sucesso!");
+  };
+
+  /**
+   * Abre o dialog de detalhes com o pedido selecionado.
+   */
   const handleViewDetails = (order: Order) => {
     setSelectedOrder(order);
     setDetailsOpen(true);
   };
 
+  /**
+   * Calcula estatísticas agregadas dos pedidos filtrados.
+   * Estas métricas ajudam a ter uma visão geral rápida do negócio.
+   */
   const calculateStats = () => {
     const totalOrders = filteredOrders.length;
     const totalRevenue = filteredOrders.reduce(
@@ -187,6 +309,7 @@ const AdminVendas: React.FC = () => {
       totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
 
     // Calcular crescimento comparado ao período anterior
+    // Isso ajuda a entender se as vendas estão crescendo ou caindo
     const currentPeriodStart = new Date();
     if (periodFilter === "month") {
       currentPeriodStart.setMonth(currentPeriodStart.getMonth() - 1);
@@ -232,6 +355,10 @@ const AdminVendas: React.FC = () => {
     };
   };
 
+  /**
+   * Exporta os dados filtrados para um arquivo CSV.
+   * Útil para análises externas ou relatórios.
+   */
   const exportData = () => {
     const csvContent = [
       ["ID", "Data", "Cliente", "Status", "Total"].join(","),
@@ -254,14 +381,23 @@ const AdminVendas: React.FC = () => {
     a.click();
   };
 
+  // ============================================
+  // PREPARAÇÃO DE DADOS PARA RENDERIZAÇÃO
+  // ============================================
+
   const stats = calculateStats();
   const paginatedOrders = filteredOrders.slice(
     page * ITEMS_PER_PAGE,
     (page + 1) * ITEMS_PER_PAGE
   );
 
+  // ============================================
+  // RENDERIZAÇÃO DO COMPONENTE
+  // ============================================
+
   return (
     <Box>
+      {/* Cabeçalho com título e botão de exportação */}
       <Box
         sx={{
           display: "flex",
@@ -278,7 +414,7 @@ const AdminVendas: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Estatísticas */}
+      {/* Cards de Estatísticas */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
@@ -416,7 +552,7 @@ const AdminVendas: React.FC = () => {
         </Grid>
       </Paper>
 
-      {/* Tabela */}
+      {/* Tabela de Pedidos */}
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -521,11 +657,17 @@ const AdminVendas: React.FC = () => {
                           <strong>Cliente:</strong>{" "}
                           {getCustomerName(selectedOrder.customerId)}
                         </Typography>
-                        <Typography>
-                          <strong>Status:</strong>{" "}
-                          {getOrderStatusLabel(selectedOrder.status)}
+                        <Typography sx={{ mt: 1 }}>
+                          <strong>Status:</strong>
                         </Typography>
-                        <Typography>
+                        <Chip
+                          label={getOrderStatusLabel(selectedOrder.status)}
+                          color={
+                            getOrderStatusColor(selectedOrder.status) as any
+                          }
+                          sx={{ mt: 0.5 }}
+                        />
+                        <Typography sx={{ mt: 2 }}>
                           <strong>Total:</strong> R${" "}
                           {selectedOrder.total.toFixed(2)}
                         </Typography>
@@ -540,7 +682,7 @@ const AdminVendas: React.FC = () => {
                         Endereço de Entrega
                       </Typography>
                       <Box sx={{ mt: 2 }}>
-                        {selectedOrder.shippingAddress && (
+                        {selectedOrder.shippingAddress ? (
                           <>
                             <Typography>
                               {selectedOrder.shippingAddress.address}
@@ -553,6 +695,10 @@ const AdminVendas: React.FC = () => {
                               {selectedOrder.shippingAddress.zipCode}
                             </Typography>
                           </>
+                        ) : (
+                          <Typography color="text.secondary">
+                            Endereço não disponível
+                          </Typography>
                         )}
                       </Box>
                     </CardContent>
@@ -576,18 +722,38 @@ const AdminVendas: React.FC = () => {
                     </TableHead>
                     <TableBody>
                       {selectedOrder.items.map((item, index) => {
+                        /**
+                         * PROTEÇÃO CONTRA DADOS INCONSISTENTES
+                         * Aqui implementamos uma estratégia de fallback em cascata:
+                         * 1. Tenta usar item.card (dados salvos no pedido)
+                         * 2. Se não existir, busca no array de cards
+                         * 3. Se ainda não encontrar, usa valores padrão
+                         *
+                         * Isso garante que o código NUNCA vai quebrar por tentar
+                         * acessar propriedades de undefined.
+                         */
                         const card = cards.find((c) => c.id === item.cardId);
+                        const cardData = item.card ||
+                          card || {
+                            name: "Produto Desconhecido",
+                            price: 0,
+                          };
+                        const unitPrice = cardData.price || 0;
+                        const subtotal = unitPrice * (item.quantity || 1);
+
                         return (
                           <TableRow key={index}>
                             <TableCell>
-                              {card ? card.name : "Produto Desconhecido"}
-                            </TableCell>
-                            <TableCell align="right">{item.quantity}</TableCell>
-                            <TableCell align="right">
-                              R$ {item.card.price.toFixed(2)}
+                              {cardData.name || "Produto Desconhecido"}
                             </TableCell>
                             <TableCell align="right">
-                              R$ {(item.card.price * item.quantity).toFixed(2)}
+                              {item.quantity || 1}
+                            </TableCell>
+                            <TableCell align="right">
+                              R$ {unitPrice.toFixed(2)}
+                            </TableCell>
+                            <TableCell align="right">
+                              R$ {subtotal.toFixed(2)}
                             </TableCell>
                           </TableRow>
                         );
@@ -595,6 +761,94 @@ const AdminVendas: React.FC = () => {
                     </TableBody>
                   </Table>
                 </TableContainer>
+              </Box>
+
+              {/* Seção de Gerenciamento de Status */}
+              <Box sx={{ mt: 4 }}>
+                <Typography variant="h6" gutterBottom>
+                  Gerenciar Status do Pedido
+                </Typography>
+
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Para que o cliente possa solicitar trocas, o pedido precisa
+                  estar com status "Entregue".
+                </Alert>
+
+                {/* Botões de ação baseados no status atual */}
+                {selectedOrder.status === "pending" && (
+                  <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      startIcon={<Payment />}
+                      onClick={() =>
+                        handleUpdateOrderStatus(selectedOrder.id, "processing")
+                      }
+                    >
+                      Confirmar Pagamento
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<Cancel />}
+                      onClick={() =>
+                        handleUpdateOrderStatus(selectedOrder.id, "cancelled")
+                      }
+                    >
+                      Cancelar Pedido
+                    </Button>
+                  </Box>
+                )}
+
+                {selectedOrder.status === ("confirmed" as Order["status"]) && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<LocalShipping />}
+                    onClick={() =>
+                      handleUpdateOrderStatus(selectedOrder.id, "processing")
+                    }
+                  >
+                    Iniciar Processamento
+                  </Button>
+                )}
+
+                {selectedOrder.status === "processing" && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<LocalShipping />}
+                    onClick={() =>
+                      handleUpdateOrderStatus(selectedOrder.id, "shipped")
+                    }
+                  >
+                    Marcar como Enviado
+                  </Button>
+                )}
+
+                {selectedOrder.status === "shipped" && (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<CheckCircle />}
+                    onClick={() =>
+                      handleUpdateOrderStatus(selectedOrder.id, "delivered")
+                    }
+                  >
+                    Confirmar Entrega
+                  </Button>
+                )}
+
+                {selectedOrder.status === "delivered" && (
+                  <Alert severity="success">
+                    ✅ Pedido entregue! O cliente já pode solicitar trocas se
+                    necessário.
+                  </Alert>
+                )}
+
+                {selectedOrder.status === "cancelled" && (
+                  <Alert severity="error">❌ Este pedido foi cancelado.</Alert>
+                )}
               </Box>
             </Box>
           )}

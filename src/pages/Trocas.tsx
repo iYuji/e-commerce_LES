@@ -68,10 +68,7 @@ interface ExchangeItem {
 const EXCHANGE_REASONS = [
   "Produto com defeito",
   "Produto diferente do anunciado",
-  "Tamanho incorreto",
-  "Cor incorreta",
   "Produto danificado na entrega",
-  "Não gostei do produto",
   "Arrependimento da compra",
   "Outro motivo",
 ];
