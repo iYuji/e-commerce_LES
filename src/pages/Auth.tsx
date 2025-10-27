@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Box,
   Paper,
@@ -13,7 +13,7 @@ import {
   InputAdornment,
   Link,
   Grid,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Visibility,
   VisibilityOff,
@@ -21,8 +21,10 @@ import {
   Facebook,
   Login,
   PersonAdd,
-} from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+} from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+import * as Store from "../store/index";
+import { Customer } from "../types";
 
 interface LoginForm {
   email: string;
@@ -44,25 +46,27 @@ const Auth: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const [loginForm, setLoginForm] = useState<LoginForm>({
-    email: '',
-    password: '',
+    email: "",
+    password: "",
   });
 
   const [registerForm, setRegisterForm] = useState<RegisterForm>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    phone: '',
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    phone: "",
   });
 
   const [loginErrors, setLoginErrors] = useState<Partial<LoginForm>>({});
-  const [registerErrors, setRegisterErrors] = useState<Partial<RegisterForm>>({});
+  const [registerErrors, setRegisterErrors] = useState<Partial<RegisterForm>>(
+    {}
+  );
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -77,13 +81,13 @@ const Auth: React.FC = () => {
     const errors: Partial<LoginForm> = {};
 
     if (!loginForm.email.trim()) {
-      errors.email = 'E-mail é obrigatório';
+      errors.email = "E-mail é obrigatório";
     } else if (!validateEmail(loginForm.email)) {
-      errors.email = 'E-mail inválido';
+      errors.email = "E-mail inválido";
     }
 
     if (!loginForm.password.trim()) {
-      errors.password = 'Senha é obrigatória';
+      errors.password = "Senha é obrigatória";
     }
 
     setLoginErrors(errors);
@@ -94,33 +98,36 @@ const Auth: React.FC = () => {
     const errors: Partial<RegisterForm> = {};
 
     if (!registerForm.firstName.trim()) {
-      errors.firstName = 'Nome é obrigatório';
+      errors.firstName = "Nome é obrigatório";
     }
 
     if (!registerForm.lastName.trim()) {
-      errors.lastName = 'Sobrenome é obrigatório';
+      errors.lastName = "Sobrenome é obrigatório";
     }
 
     if (!registerForm.email.trim()) {
-      errors.email = 'E-mail é obrigatório';
+      errors.email = "E-mail é obrigatório";
     } else if (!validateEmail(registerForm.email)) {
-      errors.email = 'E-mail inválido';
+      errors.email = "E-mail inválido";
     }
 
     if (!registerForm.password.trim()) {
-      errors.password = 'Senha é obrigatória';
+      errors.password = "Senha é obrigatória";
     } else if (!validatePassword(registerForm.password)) {
-      errors.password = 'Senha deve ter pelo menos 6 caracteres';
+      errors.password = "Senha deve ter pelo menos 6 caracteres";
     }
 
     if (!registerForm.confirmPassword.trim()) {
-      errors.confirmPassword = 'Confirmação de senha é obrigatória';
+      errors.confirmPassword = "Confirmação de senha é obrigatória";
     } else if (registerForm.password !== registerForm.confirmPassword) {
-      errors.confirmPassword = 'Senhas não coincidem';
+      errors.confirmPassword = "Senhas não coincidem";
     }
 
-    if (registerForm.phone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(registerForm.phone)) {
-      errors.phone = 'Telefone deve ter o formato (00) 00000-0000';
+    if (
+      registerForm.phone &&
+      !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(registerForm.phone)
+    ) {
+      errors.phone = "Telefone deve ter o formato (00) 00000-0000";
     }
 
     setRegisterErrors(errors);
@@ -129,27 +136,42 @@ const Auth: React.FC = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateLogin()) return;
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       // Simular processo de login
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Verificar credenciais (simulado)
-      if (loginForm.email === 'usuario@example.com' && loginForm.password === '123456') {
-        setSuccess('Login realizado com sucesso!');
-        setTimeout(() => {
-          navigate('/catalogo');
-        }, 1000);
-      } else {
-        setError('E-mail ou senha incorretos');
+      // Buscar clientes do Store
+      const customers = Store.getCustomers();
+      const passwordStore = JSON.parse(
+        localStorage.getItem("customer_passwords") || "{}"
+      );
+
+      // Verificar credenciais
+      const customer = customers.find((c) => c.email === loginForm.email);
+
+      if (!customer || passwordStore[customer.id] !== loginForm.password) {
+        setError("E-mail ou senha incorretos");
+        return;
       }
+
+      // Login bem-sucedido
+      Store.setSession({
+        userId: customer.id,
+        user: customer,
+      });
+
+      setSuccess("Login realizado com sucesso!");
+      setTimeout(() => {
+        navigate("/catalogo");
+      }, 1000);
     } catch (err) {
-      setError('Erro ao fazer login. Tente novamente.');
+      setError("Erro ao fazer login. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -157,34 +179,66 @@ const Auth: React.FC = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateRegister()) return;
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       // Simular processo de cadastro
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Verificar se e-mail já existe (simulado)
-      if (registerForm.email === 'existente@example.com') {
-        setError('Este e-mail já está cadastrado');
+      // Buscar clientes existentes
+      const customers = Store.getCustomers();
+
+      // Verificar se e-mail já existe
+      if (customers.some((c) => c.email === registerForm.email)) {
+        setError("Este e-mail já está cadastrado");
         return;
       }
 
-      setSuccess('Cadastro realizado com sucesso! Faça o login para continuar.');
+      // Criar novo cliente
+      const newCustomer: Customer = {
+        id: `customer_${Date.now()}`,
+        name: `${registerForm.firstName} ${registerForm.lastName}`,
+        email: registerForm.email,
+        phone: registerForm.phone,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Salvar cliente
+      customers.push(newCustomer);
+      Store.writeStore(Store.STORE_KEYS.customers, customers);
+
+      // Salvar senha separadamente (simulação de hash)
+      const passwordStore = JSON.parse(
+        localStorage.getItem("customer_passwords") || "{}"
+      );
+      passwordStore[newCustomer.id] = registerForm.password;
+      localStorage.setItem("customer_passwords", JSON.stringify(passwordStore));
+
+      setSuccess(
+        "Cadastro realizado com sucesso! Faça o login para continuar."
+      );
       setActiveTab(0);
+
+      // Preencher email no formulário de login
+      setLoginForm({
+        email: registerForm.email,
+        password: "",
+      });
+
       setRegisterForm({
-        firstName: '',
-        lastName: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        phone: '',
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+        phone: "",
       });
     } catch (err) {
-      setError('Erro ao criar conta. Tente novamente.');
+      setError("Erro ao criar conta. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -192,36 +246,43 @@ const Auth: React.FC = () => {
 
   const handleSocialLogin = (provider: string) => {
     setLoading(true);
-    setError('');
-    
+    setError("");
+
     // Simular login social
     setTimeout(() => {
       setSuccess(`Login com ${provider} realizado com sucesso!`);
       setTimeout(() => {
-        navigate('/catalogo');
+        navigate("/catalogo");
       }, 1000);
     }, 1500);
   };
 
   const formatPhone = (value: string) => {
-    const v = value.replace(/\D/g, '');
-    return v.replace(/(\d{2})(\d{4,5})(\d{4})/, '($1) $2-$3');
+    const v = value.replace(/\D/g, "");
+    return v.replace(/(\d{2})(\d{4,5})(\d{4})/, "($1) $2-$3");
   };
 
   return (
-    <Box sx={{ 
-      minHeight: '80vh', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      py: 4 
-    }}>
-      <Paper sx={{ width: '100%', maxWidth: 450, p: 4 }}>
+    <Box
+      sx={{
+        minHeight: "80vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        py: 4,
+      }}
+    >
+      <Paper sx={{ width: "100%", maxWidth: 450, p: 4 }}>
         <Typography variant="h4" component="h1" align="center" gutterBottom>
           Portal do Cliente
         </Typography>
-        
-        <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
+
+        <Typography
+          variant="body2"
+          align="center"
+          color="text.secondary"
+          sx={{ mb: 3 }}
+        >
           Acesse sua conta ou crie uma nova para continuar suas compras
         </Typography>
 
@@ -237,7 +298,11 @@ const Auth: React.FC = () => {
           </Alert>
         )}
 
-        <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} centered>
+        <Tabs
+          value={activeTab}
+          onChange={(_, newValue) => setActiveTab(newValue)}
+          centered
+        >
           <Tab label="Entrar" icon={<Login />} />
           <Tab label="Cadastrar" icon={<PersonAdd />} />
         </Tabs>
@@ -251,7 +316,9 @@ const Auth: React.FC = () => {
                 label="E-mail"
                 type="email"
                 value={loginForm.email}
-                onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
+                onChange={(e) =>
+                  setLoginForm({ ...loginForm, email: e.target.value })
+                }
                 error={!!loginErrors.email}
                 helperText={loginErrors.email}
                 sx={{ mb: 2 }}
@@ -261,9 +328,11 @@ const Auth: React.FC = () => {
               <TextField
                 fullWidth
                 label="Senha"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 value={loginForm.password}
-                onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                onChange={(e) =>
+                  setLoginForm({ ...loginForm, password: e.target.value })
+                }
                 error={!!loginErrors.password}
                 helperText={loginErrors.password}
                 sx={{ mb: 3 }}
@@ -290,14 +359,18 @@ const Auth: React.FC = () => {
                 disabled={loading}
                 sx={{ mb: 2 }}
               >
-                {loading ? 'Entrando...' : 'Entrar'}
+                {loading ? "Entrando..." : "Entrar"}
               </Button>
 
               <Link
                 component="button"
                 variant="body2"
-                sx={{ display: 'block', textAlign: 'center', mb: 2 }}
-                onClick={() => setError('Funcionalidade de recuperação de senha ainda não implementada')}
+                sx={{ display: "block", textAlign: "center", mb: 2 }}
+                onClick={() =>
+                  setError(
+                    "Funcionalidade de recuperação de senha ainda não implementada"
+                  )
+                }
               >
                 Esqueceu sua senha?
               </Link>
@@ -311,7 +384,12 @@ const Auth: React.FC = () => {
                     fullWidth
                     label="Nome"
                     value={registerForm.firstName}
-                    onChange={(e) => setRegisterForm({ ...registerForm, firstName: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({
+                        ...registerForm,
+                        firstName: e.target.value,
+                      })
+                    }
                     error={!!registerErrors.firstName}
                     helperText={registerErrors.firstName}
                     autoComplete="given-name"
@@ -322,7 +400,12 @@ const Auth: React.FC = () => {
                     fullWidth
                     label="Sobrenome"
                     value={registerForm.lastName}
-                    onChange={(e) => setRegisterForm({ ...registerForm, lastName: e.target.value })}
+                    onChange={(e) =>
+                      setRegisterForm({
+                        ...registerForm,
+                        lastName: e.target.value,
+                      })
+                    }
                     error={!!registerErrors.lastName}
                     helperText={registerErrors.lastName}
                     autoComplete="family-name"
@@ -335,7 +418,9 @@ const Auth: React.FC = () => {
                 label="E-mail"
                 type="email"
                 value={registerForm.email}
-                onChange={(e) => setRegisterForm({ ...registerForm, email: e.target.value })}
+                onChange={(e) =>
+                  setRegisterForm({ ...registerForm, email: e.target.value })
+                }
                 error={!!registerErrors.email}
                 helperText={registerErrors.email}
                 sx={{ mt: 2 }}
@@ -346,10 +431,12 @@ const Auth: React.FC = () => {
                 fullWidth
                 label="Telefone (opcional)"
                 value={registerForm.phone}
-                onChange={(e) => setRegisterForm({ 
-                  ...registerForm, 
-                  phone: formatPhone(e.target.value) 
-                })}
+                onChange={(e) =>
+                  setRegisterForm({
+                    ...registerForm,
+                    phone: formatPhone(e.target.value),
+                  })
+                }
                 error={!!registerErrors.phone}
                 helperText={registerErrors.phone}
                 sx={{ mt: 2 }}
@@ -360,9 +447,11 @@ const Auth: React.FC = () => {
               <TextField
                 fullWidth
                 label="Senha"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 value={registerForm.password}
-                onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                onChange={(e) =>
+                  setRegisterForm({ ...registerForm, password: e.target.value })
+                }
                 error={!!registerErrors.password}
                 helperText={registerErrors.password}
                 sx={{ mt: 2 }}
@@ -384,9 +473,14 @@ const Auth: React.FC = () => {
               <TextField
                 fullWidth
                 label="Confirmar Senha"
-                type={showConfirmPassword ? 'text' : 'password'}
+                type={showConfirmPassword ? "text" : "password"}
                 value={registerForm.confirmPassword}
-                onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
+                onChange={(e) =>
+                  setRegisterForm({
+                    ...registerForm,
+                    confirmPassword: e.target.value,
+                  })
+                }
                 error={!!registerErrors.confirmPassword}
                 helperText={registerErrors.confirmPassword}
                 sx={{ mt: 2, mb: 3 }}
@@ -395,10 +489,16 @@ const Auth: React.FC = () => {
                   endAdornment: (
                     <InputAdornment position="end">
                       <IconButton
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        onClick={() =>
+                          setShowConfirmPassword(!showConfirmPassword)
+                        }
                         edge="end"
                       >
-                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                        {showConfirmPassword ? (
+                          <VisibilityOff />
+                        ) : (
+                          <Visibility />
+                        )}
                       </IconButton>
                     </InputAdornment>
                   ),
@@ -413,7 +513,7 @@ const Auth: React.FC = () => {
                 disabled={loading}
                 sx={{ mb: 2 }}
               >
-                {loading ? 'Criando conta...' : 'Criar Conta'}
+                {loading ? "Criando conta..." : "Criar Conta"}
               </Button>
             </Box>
           )}
@@ -430,7 +530,7 @@ const Auth: React.FC = () => {
                 fullWidth
                 variant="outlined"
                 startIcon={<Google />}
-                onClick={() => handleSocialLogin('Google')}
+                onClick={() => handleSocialLogin("Google")}
                 disabled={loading}
               >
                 Google
@@ -441,7 +541,7 @@ const Auth: React.FC = () => {
                 fullWidth
                 variant="outlined"
                 startIcon={<Facebook />}
-                onClick={() => handleSocialLogin('Facebook')}
+                onClick={() => handleSocialLogin("Facebook")}
                 disabled={loading}
               >
                 Facebook
@@ -449,9 +549,16 @@ const Auth: React.FC = () => {
             </Grid>
           </Grid>
 
-          <Typography variant="body2" align="center" color="text.secondary" sx={{ mt: 3 }}>
-            Para testar o login, use:<br />
-            <strong>E-mail:</strong> usuario@example.com<br />
+          <Typography
+            variant="body2"
+            align="center"
+            color="text.secondary"
+            sx={{ mt: 3 }}
+          >
+            Para testar o login, use:
+            <br />
+            <strong>E-mail:</strong> usuario@example.com
+            <br />
             <strong>Senha:</strong> 123456
           </Typography>
         </Box>

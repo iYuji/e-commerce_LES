@@ -48,18 +48,47 @@ const AdminVendas: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  // MUDANÇA 1: useEffect agora escuta o evento orders:updated
   useEffect(() => {
     loadData();
+
+    // Listener para recarregar quando houver novos pedidos
+    const handleOrdersUpdate = () => {
+      console.log("🔄 AdminVendas: Pedidos atualizados, recarregando...");
+      loadData();
+    };
+
+    // Registrar o listener
+    window.addEventListener("orders:updated", handleOrdersUpdate);
+
+    // Cleanup: remover listener quando componente desmontar
+    return () => {
+      window.removeEventListener("orders:updated", handleOrdersUpdate);
+    };
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [orders, statusFilter, periodFilter]);
-
+  // MUDANÇA 2: loadData com logs detalhados
   const loadData = () => {
     const loadedOrders = Store.getOrders();
     const loadedCards = Store.getCards();
     const loadedCustomers = Store.getCustomers();
+
+    // Logs para debug - ajudam a identificar problemas
+    console.log("📊 AdminVendas - Carregando dados:");
+    console.log("  📦 Total de pedidos:", loadedOrders.length);
+    console.log("  🎴 Total de cartas:", loadedCards.length);
+    console.log("  👥 Total de clientes:", loadedCustomers.length);
+
+    // Mostrar informações do último pedido criado
+    if (loadedOrders.length > 0) {
+      console.log("  🔍 Último pedido:", {
+        id: loadedOrders[loadedOrders.length - 1].id,
+        customerId: loadedOrders[loadedOrders.length - 1].customerId,
+        total: loadedOrders[loadedOrders.length - 1].total,
+        status: loadedOrders[loadedOrders.length - 1].status,
+      });
+    }
+
     setOrders(loadedOrders);
     setCards(loadedCards);
     setCustomers(loadedCustomers);

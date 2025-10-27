@@ -10,51 +10,72 @@ import {
   TableRow,
   Paper,
   Chip,
-  TextField,
+  Button,
   Grid,
   Card,
   CardContent,
-  Pagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Alert,
   Snackbar,
+  Stepper,
+  Step,
+  StepLabel,
+  TextField,
 } from "@mui/material";
 import {
-  Search,
   Visibility,
   Check,
   Close,
-  SwapHoriz,
-  Schedule,
   CheckCircle,
   Cancel,
 } from "@mui/icons-material";
 import * as Store from "../../store/index";
-import { Exchange, Customer, Card as CardType } from "../../types";
+import { Customer, Coupon } from "../../types";
+import { CouponService } from "../../services/couponService";
+import { StockService } from "../../services/stockService";
 
-const ITEMS_PER_PAGE = 10;
+interface ExchangeRequest {
+  id: string;
+  orderId: string;
+  customerId: string;
+  items: ExchangeItem[];
+  reason: string;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  exchangeCouponCode?: string;
+  exchangeCouponValue?: number;
+  notes?: string;
+}
+
+interface ExchangeItem {
+  productId: string;
+  productName: string;
+  imageUrl?: string;
+  quantity: number;
+  price: number;
+  reason: string;
+  condition: string;
+}
 
 const AdminTrocas: React.FC = () => {
-  const [exchanges, setExchanges] = useState<Exchange[]>([]);
+  const [exchanges, setExchanges] = useState<ExchangeRequest[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [cards, setCards] = useState<CardType[]>([]);
-  const [filteredExchanges, setFilteredExchanges] = useState<Exchange[]>([]);
-  const [page, setPage] = useState(0);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [selectedExchange, setSelectedExchange] = useState<Exchange | null>(
-    null
+  const [filteredExchanges, setFilteredExchanges] = useState<ExchangeRequest[]>(
+    []
   );
+  const [selectedExchange, setSelectedExchange] =
+    useState<ExchangeRequest | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -67,38 +88,33 @@ const AdminTrocas: React.FC = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [exchanges, searchTerm, statusFilter]);
+  }, [exchanges, statusFilter]);
 
   const loadData = () => {
-    const loadedExchanges = Store.getExchanges();
-    const loadedCustomers = Store.getCustomers();
-    const loadedCards = Store.getCards();
+    // Carregar trocas do localStorage
+    const stored = localStorage.getItem("exchange_requests");
+    const loadedExchanges: ExchangeRequest[] = stored ? JSON.parse(stored) : [];
     setExchanges(loadedExchanges);
+
+    // Carregar clientes
+    const loadedCustomers = Store.getCustomers();
     setCustomers(loadedCustomers);
-    setCards(loadedCards);
   };
 
   const applyFilters = () => {
     let filtered = exchanges;
 
-    if (searchTerm) {
-      filtered = filtered.filter((exchange) => {
-        const customer = customers.find((c) => c.id === exchange.customerId);
-        return (
-          customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          exchange.id.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-      });
+    if (statusFilter) {
+      filtered = filtered.filter((ex) => ex.status === statusFilter);
     }
 
-    if (statusFilter) {
-      filtered = filtered.filter(
-        (exchange) => exchange.status === statusFilter
-      );
-    }
+    // Ordenar por data (mais recente primeiro)
+    filtered.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     setFilteredExchanges(filtered);
-    setPage(0);
   };
 
   const getCustomerName = (customerId: string) => {
@@ -106,251 +122,275 @@ const AdminTrocas: React.FC = () => {
     return customer ? customer.name : "Cliente Desconhecido";
   };
 
-  const getCardName = (cardId: string) => {
-    const card = cards.find((c) => c.id === cardId);
-    return card ? card.name : "Carta Desconhecida";
-  };
-
   const getStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return "warning";
-      case "approved":
-        return "success";
-      case "rejected":
-        return "error";
-      case "completed":
-        return "primary";
-      default:
-        return "default";
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels: { [key: string]: string } = {
-      pending: "Pendente",
-      approved: "Aprovado",
-      rejected: "Rejeitado",
-      completed: "Concluído",
+    const colors: Record<string, any> = {
+      "Aguardando Aprovação": "warning",
+      Aprovada: "info",
+      "Produto Recebido": "primary",
+      "Troca Enviada": "secondary",
+      Concluída: "success",
+      Recusada: "error",
     };
-    return labels[status.toLowerCase()] || status;
+    return colors[status] || "default";
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return <Schedule />;
-      case "approved":
-        return <CheckCircle />;
-      case "rejected":
-        return <Cancel />;
-      case "completed":
-        return <Check />;
-      default:
-        return <SwapHoriz />;
+  const getStatusStep = (status: string) => {
+    const steps = [
+      "Aguardando Aprovação",
+      "Aprovada",
+      "Produto Recebido",
+      "Troca Enviada",
+      "Concluída",
+    ];
+    return steps.indexOf(status);
+  };
+
+  const showSnackbar = (message: string, severity: "success" | "error") => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const generateExchangeCoupon = (exchange: ExchangeRequest): string => {
+    const couponCode = `TROCA${Date.now().toString().slice(-6)}`;
+
+    const coupon: Coupon = {
+      id: `exchange_${exchange.id}`,
+      code: couponCode,
+      discount: exchange.exchangeCouponValue || 0,
+      type: "fixed",
+      category: "exchange",
+      customerId: exchange.customerId,
+      isActive: true,
+      minOrderValue: 0,
+      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(), // 90 dias
+    };
+
+    CouponService.addCoupon(coupon);
+    console.log("✅ Cupom de troca gerado:", couponCode);
+
+    return couponCode;
+  };
+
+  const returnStockToInventory = (exchange: ExchangeRequest) => {
+    // Devolver produtos ao estoque
+    const itemsToReturn = exchange.items.map((item) => ({
+      id: item.productId,
+      cardId: item.productId,
+      card: {
+        id: item.productId,
+        name: item.productName,
+        price: item.price,
+        stock: 0, // Não usado na devolução
+      } as any,
+      quantity: item.quantity,
+      addedAt: new Date().toISOString(),
+    }));
+
+    StockService.increaseStock(itemsToReturn);
+    console.log("✅ Estoque devolvido:", exchange.items.length, "itens");
+  };
+
+  const handleApproveExchange = (exchangeId: string) => {
+    const stored = localStorage.getItem("exchange_requests");
+    const allExchanges: ExchangeRequest[] = stored ? JSON.parse(stored) : [];
+    const exchangeIndex = allExchanges.findIndex((ex) => ex.id === exchangeId);
+
+    if (exchangeIndex === -1) {
+      showSnackbar("Troca não encontrada", "error");
+      return;
+    }
+
+    // Atualizar status
+    allExchanges[exchangeIndex].status = "Aprovada";
+    allExchanges[exchangeIndex].updatedAt = new Date().toISOString();
+
+    // Salvar
+    localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
+
+    loadData();
+    showSnackbar("Troca aprovada com sucesso!", "success");
+
+    // Atualizar exchange selecionada
+    if (selectedExchange?.id === exchangeId) {
+      setSelectedExchange(allExchanges[exchangeIndex]);
     }
   };
 
-  const handleViewDetails = (exchange: Exchange) => {
+  const handleRejectExchange = (exchangeId: string) => {
+    const stored = localStorage.getItem("exchange_requests");
+    const allExchanges: ExchangeRequest[] = stored ? JSON.parse(stored) : [];
+    const exchangeIndex = allExchanges.findIndex((ex) => ex.id === exchangeId);
+
+    if (exchangeIndex === -1) {
+      showSnackbar("Troca não encontrada", "error");
+      return;
+    }
+
+    // Atualizar status
+    allExchanges[exchangeIndex].status = "Recusada";
+    allExchanges[exchangeIndex].updatedAt = new Date().toISOString();
+
+    // Salvar
+    localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
+
+    loadData();
+    showSnackbar("Troca recusada", "success");
+    setDetailsOpen(false);
+  };
+
+  const handleConfirmReceipt = (exchangeId: string) => {
+    const stored = localStorage.getItem("exchange_requests");
+    const allExchanges: ExchangeRequest[] = stored ? JSON.parse(stored) : [];
+    const exchangeIndex = allExchanges.findIndex((ex) => ex.id === exchangeId);
+
+    if (exchangeIndex === -1) {
+      showSnackbar("Troca não encontrada", "error");
+      return;
+    }
+
+    const exchange = allExchanges[exchangeIndex];
+
+    // 1. Devolver produtos ao estoque
+    returnStockToInventory(exchange);
+
+    // 2. Gerar cupom de troca
+    const couponCode = generateExchangeCoupon(exchange);
+
+    // 3. Atualizar status e salvar cupom gerado
+    allExchanges[exchangeIndex].status = "Produto Recebido";
+    allExchanges[exchangeIndex].exchangeCouponCode = couponCode;
+    allExchanges[exchangeIndex].updatedAt = new Date().toISOString();
+
+    // Salvar
+    localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
+
+    loadData();
+    showSnackbar(
+      `Produto recebido! Cupom ${couponCode} gerado para o cliente.`,
+      "success"
+    );
+
+    // Atualizar exchange selecionada
+    if (selectedExchange?.id === exchangeId) {
+      setSelectedExchange(allExchanges[exchangeIndex]);
+    }
+  };
+
+  const handleCompleteExchange = (exchangeId: string) => {
+    const stored = localStorage.getItem("exchange_requests");
+    const allExchanges: ExchangeRequest[] = stored ? JSON.parse(stored) : [];
+    const exchangeIndex = allExchanges.findIndex((ex) => ex.id === exchangeId);
+
+    if (exchangeIndex === -1) {
+      showSnackbar("Troca não encontrada", "error");
+      return;
+    }
+
+    // Atualizar status
+    allExchanges[exchangeIndex].status = "Concluída";
+    allExchanges[exchangeIndex].updatedAt = new Date().toISOString();
+
+    // Salvar
+    localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
+
+    loadData();
+    showSnackbar("Troca concluída!", "success");
+
+    // Atualizar exchange selecionada
+    if (selectedExchange?.id === exchangeId) {
+      setSelectedExchange(allExchanges[exchangeIndex]);
+    }
+  };
+
+  const handleViewDetails = (exchange: ExchangeRequest) => {
     setSelectedExchange(exchange);
     setDetailsOpen(true);
   };
 
-  const handleStatusChange = (exchangeId: string, newStatus: string) => {
-    const updatedExchanges = exchanges.map((exchange) =>
-      exchange.id === exchangeId
-        ? { ...exchange, status: newStatus as Exchange["status"] }
-        : exchange
-    );
-    setExchanges(updatedExchanges);
-    Store.writeStore(Store.STORE_KEYS.exchanges, updatedExchanges);
-
-    setSnackbar({
-      open: true,
-      message: `Troca ${getStatusLabel(newStatus).toLowerCase()} com sucesso!`,
-      severity: "success",
-    });
-    setDetailsOpen(false);
-  };
-
   const calculateStats = () => {
-    const totalExchanges = exchanges.length;
-    const pendingExchanges = exchanges.filter(
-      (e) => e.status === "pending"
-    ).length;
-    const approvedExchanges = exchanges.filter(
-      (e) => e.status === "approved"
-    ).length;
-    const completedExchanges = exchanges.filter(
-      (e) => e.status === "completed"
-    ).length;
-    const rejectedExchanges = exchanges.filter(
-      (e) => e.status === "rejected"
-    ).length;
-
     return {
-      totalExchanges,
-      pendingExchanges,
-      approvedExchanges,
-      completedExchanges,
-      rejectedExchanges,
+      total: exchanges.length,
+      pending: exchanges.filter((e) => e.status === "Aguardando Aprovação")
+        .length,
+      approved: exchanges.filter((e) => e.status === "Aprovada").length,
+      received: exchanges.filter((e) => e.status === "Produto Recebido").length,
+      completed: exchanges.filter((e) => e.status === "Concluída").length,
     };
   };
 
   const stats = calculateStats();
-  const paginatedExchanges = filteredExchanges.slice(
-    page * ITEMS_PER_PAGE,
-    (page + 1) * ITEMS_PER_PAGE
-  );
 
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Gerenciar Trocas
+        Gerenciamento de Trocas e Devoluções
       </Typography>
 
       {/* Estatísticas */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={2.4}>
           <Card>
             <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Total
-                  </Typography>
-                  <Typography variant="h5">{stats.totalExchanges}</Typography>
-                </Box>
-                <SwapHoriz color="primary" />
-              </Box>
+              <Typography color="textSecondary" variant="body2">
+                Total
+              </Typography>
+              <Typography variant="h4">{stats.total}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card>
+          <Card sx={{ bgcolor: "warning.light" }}>
             <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Pendentes
-                  </Typography>
-                  <Typography variant="h5" color="warning.main">
-                    {stats.pendingExchanges}
-                  </Typography>
-                </Box>
-                <Schedule color="warning" />
-              </Box>
+              <Typography color="textSecondary" variant="body2">
+                Aguardando Aprovação
+              </Typography>
+              <Typography variant="h4">{stats.pending}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card>
+          <Card sx={{ bgcolor: "info.light" }}>
             <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Aprovadas
-                  </Typography>
-                  <Typography variant="h5" color="success.main">
-                    {stats.approvedExchanges}
-                  </Typography>
-                </Box>
-                <CheckCircle color="success" />
-              </Box>
+              <Typography color="textSecondary" variant="body2">
+                Aprovadas
+              </Typography>
+              <Typography variant="h4">{stats.approved}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card>
+          <Card sx={{ bgcolor: "primary.light" }}>
             <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Concluídas
-                  </Typography>
-                  <Typography variant="h5" color="primary">
-                    {stats.completedExchanges}
-                  </Typography>
-                </Box>
-                <Check color="primary" />
-              </Box>
+              <Typography color="textSecondary" variant="body2">
+                Produto Recebido
+              </Typography>
+              <Typography variant="h4">{stats.received}</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={2.4}>
-          <Card>
+          <Card sx={{ bgcolor: "success.light" }}>
             <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Rejeitadas
-                  </Typography>
-                  <Typography variant="h5" color="error">
-                    {stats.rejectedExchanges}
-                  </Typography>
-                </Box>
-                <Cancel color="error" />
-              </Box>
+              <Typography color="textSecondary" variant="body2">
+                Concluídas
+              </Typography>
+              <Typography variant="h4">{stats.completed}</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
       {/* Alertas */}
-      {stats.pendingExchanges > 0 && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          Você tem {stats.pendingExchanges} solicitação(ões) de troca
-          pendente(s) para revisar.
+      {stats.pending > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Você tem {stats.pending} solicitação(ões) de troca aguardando
+          aprovação!
         </Alert>
       )}
 
       {/* Filtros */}
       <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              placeholder="Buscar por cliente ou ID da troca..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <Search sx={{ mr: 1, color: "text.secondary" }} />
-                ),
-              }}
-            />
-          </Grid>
-          <Grid item xs={12} md={3}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth>
               <InputLabel>Status</InputLabel>
               <Select
@@ -359,23 +399,24 @@ const AdminTrocas: React.FC = () => {
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
                 <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="pending">Pendente</MenuItem>
-                <MenuItem value="approved">Aprovado</MenuItem>
-                <MenuItem value="rejected">Rejeitado</MenuItem>
-                <MenuItem value="completed">Concluído</MenuItem>
+                <MenuItem value="Aguardando Aprovação">
+                  Aguardando Aprovação
+                </MenuItem>
+                <MenuItem value="Aprovada">Aprovada</MenuItem>
+                <MenuItem value="Produto Recebido">Produto Recebido</MenuItem>
+                <MenuItem value="Troca Enviada">Troca Enviada</MenuItem>
+                <MenuItem value="Concluída">Concluída</MenuItem>
+                <MenuItem value="Recusada">Recusada</MenuItem>
               </Select>
             </FormControl>
           </Grid>
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={2}>
             <Button
               fullWidth
               variant="outlined"
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("");
-              }}
+              onClick={() => setStatusFilter("")}
             >
-              Limpar Filtros
+              Limpar
             </Button>
           </Grid>
         </Grid>
@@ -388,54 +429,44 @@ const AdminTrocas: React.FC = () => {
             <TableRow>
               <TableCell>ID</TableCell>
               <TableCell>Cliente</TableCell>
-              <TableCell>Carta Oferecida</TableCell>
-              <TableCell>Carta Desejada</TableCell>
+              <TableCell>Pedido</TableCell>
+              <TableCell>Itens</TableCell>
+              <TableCell>Valor</TableCell>
               <TableCell>Data</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="center">Ações</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedExchanges.map((exchange) => (
+            {filteredExchanges.map((exchange) => (
               <TableRow key={exchange.id} hover>
                 <TableCell>
                   <Typography variant="body2" fontWeight="bold">
-                    #{exchange.id}
+                    #{exchange.id.slice(-8).toUpperCase()}
                   </Typography>
                 </TableCell>
+                <TableCell>{getCustomerName(exchange.customerId)}</TableCell>
                 <TableCell>
-                  <Typography variant="body2">
-                    {getCustomerName(exchange.customerId)}
-                  </Typography>
+                  #{exchange.orderId.slice(-8).toUpperCase()}
+                </TableCell>
+                <TableCell>{exchange.items.length} item(s)</TableCell>
+                <TableCell>
+                  R$ {exchange.exchangeCouponValue?.toFixed(2) || "0.00"}
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2">
-                    {getCardName(exchange.offeredCardId)}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    {getCardName(exchange.requestedCardId)}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    {new Date(exchange.createdAt).toLocaleDateString()}
-                  </Typography>
+                  {new Date(exchange.createdAt).toLocaleDateString("pt-BR")}
                 </TableCell>
                 <TableCell>
                   <Chip
-                    label={getStatusLabel(exchange.status)}
+                    label={exchange.status}
                     size="small"
-                    color={getStatusColor(exchange.status) as any}
-                    icon={getStatusIcon(exchange.status)}
+                    color={getStatusColor(exchange.status)}
                   />
                 </TableCell>
                 <TableCell align="center">
                   <IconButton
                     size="small"
                     onClick={() => handleViewDetails(exchange)}
-                    title="Ver Detalhes"
                   >
                     <Visibility />
                   </IconButton>
@@ -446,129 +477,198 @@ const AdminTrocas: React.FC = () => {
         </Table>
       </TableContainer>
 
-      {/* Paginação */}
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-        <Pagination
-          count={Math.ceil(filteredExchanges.length / ITEMS_PER_PAGE)}
-          page={page + 1}
-          onChange={(_, newPage) => setPage(newPage - 1)}
-          color="primary"
-        />
-      </Box>
+      {filteredExchanges.length === 0 && (
+        <Box sx={{ textAlign: "center", py: 4 }}>
+          <Typography color="text.secondary">
+            Nenhuma troca encontrada
+          </Typography>
+        </Box>
+      )}
 
-      {/* Dialog de Detalhes da Troca */}
+      {/* Dialog de Detalhes */}
       <Dialog
         open={detailsOpen}
         onClose={() => setDetailsOpen(false)}
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Detalhes da Troca #{selectedExchange?.id}</DialogTitle>
+        <DialogTitle>
+          Troca #{selectedExchange?.id.slice(-8).toUpperCase()}
+        </DialogTitle>
         <DialogContent>
           {selectedExchange && (
             <Box sx={{ mt: 2 }}>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Informações da Troca
-                      </Typography>
-                      <Box sx={{ mt: 2 }}>
-                        <Typography>
-                          <strong>Cliente:</strong>{" "}
-                          {getCustomerName(selectedExchange.customerId)}
-                        </Typography>
-                        <Typography>
-                          <strong>Data:</strong>{" "}
-                          {new Date(
-                            selectedExchange.createdAt
-                          ).toLocaleString()}
-                        </Typography>
-                        <Typography>
-                          <strong>Status:</strong>{" "}
-                          {getStatusLabel(selectedExchange.status)}
-                        </Typography>
-                        {selectedExchange.reason && (
-                          <Typography>
-                            <strong>Motivo:</strong> {selectedExchange.reason}
-                          </Typography>
-                        )}
-                      </Box>
-                    </CardContent>
-                  </Card>
+              {/* Stepper */}
+              {selectedExchange.status !== "Recusada" && (
+                <Stepper
+                  activeStep={getStatusStep(selectedExchange.status)}
+                  sx={{ mb: 4 }}
+                >
+                  <Step>
+                    <StepLabel>Aguardando Aprovação</StepLabel>
+                  </Step>
+                  <Step>
+                    <StepLabel>Aprovada</StepLabel>
+                  </Step>
+                  <Step>
+                    <StepLabel>Produto Recebido</StepLabel>
+                  </Step>
+                  <Step>
+                    <StepLabel>Troca Enviada</StepLabel>
+                  </Step>
+                  <Step>
+                    <StepLabel>Concluída</StepLabel>
+                  </Step>
+                </Stepper>
+              )}
+
+              {/* Informações */}
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Cliente
+                  </Typography>
+                  <Typography variant="body1" fontWeight="bold">
+                    {getCustomerName(selectedExchange.customerId)}
+                  </Typography>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Detalhes da Troca
-                      </Typography>
-                      <Box sx={{ mt: 2 }}>
-                        <Typography>
-                          <strong>Carta Oferecida:</strong>{" "}
-                          {getCardName(selectedExchange.offeredCardId)}
-                        </Typography>
-                        <Typography>
-                          <strong>Carta Desejada:</strong>{" "}
-                          {getCardName(selectedExchange.requestedCardId)}
-                        </Typography>
-                        <Typography>
-                          <strong>Observações:</strong>{" "}
-                          {selectedExchange.notes || "Nenhuma"}
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Pedido Original
+                  </Typography>
+                  <Typography variant="body1" fontWeight="bold">
+                    #{selectedExchange.orderId.slice(-8).toUpperCase()}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Valor do Cupom
+                  </Typography>
+                  <Typography variant="h6" color="primary">
+                    R$ {selectedExchange.exchangeCouponValue?.toFixed(2)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Status
+                  </Typography>
+                  <Chip
+                    label={selectedExchange.status}
+                    color={getStatusColor(selectedExchange.status)}
+                  />
                 </Grid>
               </Grid>
 
-              {selectedExchange.status === "pending" && (
-                <Box
-                  sx={{
-                    mt: 3,
-                    display: "flex",
-                    gap: 2,
-                    justifyContent: "center",
-                  }}
-                >
-                  <Button
-                    variant="contained"
-                    color="success"
-                    startIcon={<Check />}
-                    onClick={() =>
-                      handleStatusChange(selectedExchange.id, "approved")
-                    }
-                  >
-                    Aprovar Troca
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="error"
-                    startIcon={<Close />}
-                    onClick={() =>
-                      handleStatusChange(selectedExchange.id, "rejected")
-                    }
-                  >
-                    Rejeitar Troca
-                  </Button>
+              {/* Cupom gerado */}
+              {selectedExchange.exchangeCouponCode && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  <Typography variant="body2" fontWeight="bold">
+                    Cupom gerado: {selectedExchange.exchangeCouponCode}
+                  </Typography>
+                  <Typography variant="caption">
+                    O cliente pode usar este cupom em futuras compras
+                  </Typography>
+                </Alert>
+              )}
+
+              {/* Itens */}
+              <Typography variant="h6" gutterBottom>
+                Produtos para Troca
+              </Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Produto</TableCell>
+                      <TableCell>Qtd</TableCell>
+                      <TableCell>Motivo</TableCell>
+                      <TableCell>Condição</TableCell>
+                      <TableCell align="right">Valor</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedExchange.items.map((item, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{item.productName}</TableCell>
+                        <TableCell>{item.quantity}</TableCell>
+                        <TableCell>{item.reason}</TableCell>
+                        <TableCell>{item.condition}</TableCell>
+                        <TableCell align="right">
+                          R$ {(item.price * item.quantity).toFixed(2)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {/* Observações */}
+              {selectedExchange.notes && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2">Observações:</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {selectedExchange.notes}
+                  </Typography>
                 </Box>
               )}
 
-              {selectedExchange.status === "approved" && (
-                <Box sx={{ mt: 3, display: "flex", justifyContent: "center" }}>
+              {/* Ações Administrativas */}
+              <Box sx={{ mt: 4 }}>
+                <Typography variant="h6" gutterBottom>
+                  Ações Administrativas
+                </Typography>
+
+                {selectedExchange.status === "Aguardando Aprovação" && (
+                  <Box sx={{ display: "flex", gap: 2 }}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      startIcon={<Check />}
+                      onClick={() => handleApproveExchange(selectedExchange.id)}
+                    >
+                      Aprovar Troca
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<Close />}
+                      onClick={() => handleRejectExchange(selectedExchange.id)}
+                    >
+                      Recusar Troca
+                    </Button>
+                  </Box>
+                )}
+
+                {selectedExchange.status === "Aprovada" && (
                   <Button
                     variant="contained"
                     color="primary"
-                    startIcon={<Check />}
-                    onClick={() =>
-                      handleStatusChange(selectedExchange.id, "completed")
-                    }
+                    startIcon={<CheckCircle />}
+                    onClick={() => handleConfirmReceipt(selectedExchange.id)}
+                  >
+                    Confirmar Recebimento do Produto
+                  </Button>
+                )}
+
+                {selectedExchange.status === "Produto Recebido" && (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<CheckCircle />}
+                    onClick={() => handleCompleteExchange(selectedExchange.id)}
                   >
                     Marcar como Concluída
                   </Button>
-                </Box>
-              )}
+                )}
+
+                {selectedExchange.status === "Concluída" && (
+                  <Alert severity="success">Troca concluída com sucesso!</Alert>
+                )}
+
+                {selectedExchange.status === "Recusada" && (
+                  <Alert severity="error">Esta troca foi recusada.</Alert>
+                )}
+              </Box>
             </Box>
           )}
         </DialogContent>
@@ -580,15 +680,10 @@ const AdminTrocas: React.FC = () => {
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-        >
-          {snackbar.message}
-        </Alert>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );

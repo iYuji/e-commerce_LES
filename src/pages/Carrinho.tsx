@@ -22,7 +22,8 @@ import {
 import { Add, Remove, Delete, ShoppingCart } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import * as Store from "../store/index";
-import { CartItem } from "../types";
+import { CartItem, Coupon } from "../types";
+import { CouponService } from "../services/couponService";
 
 // Adicionar função para atualizar quantidade no store
 const updateQuantityInStore = (itemId: string, newQuantity: number) => {
@@ -44,7 +45,7 @@ const Carrinho: React.FC = () => {
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [appliedCoupons, setAppliedCoupons] = useState<Coupon[]>([]);
   const [couponError, setCouponError] = useState("");
 
   useEffect(() => {
@@ -78,14 +79,13 @@ const Carrinho: React.FC = () => {
   };
 
   const getDiscount = () => {
-    if (!appliedCoupon) return 0;
+    if (appliedCoupons.length === 0) return 0;
     const subtotal = getSubtotal();
 
-    if (appliedCoupon.type === "percentage") {
-      return subtotal * (appliedCoupon.discount / 100);
-    } else {
-      return appliedCoupon.discount;
-    }
+    // Calcular desconto total de todos os cupons aplicados
+    return appliedCoupons.reduce((total, coupon) => {
+      return total + CouponService.calculateDiscount(coupon, subtotal);
+    }, 0);
   };
 
   const getTotalPrice = () => {
@@ -95,36 +95,72 @@ const Carrinho: React.FC = () => {
   const applyCoupon = () => {
     setCouponError("");
 
-    // Simular validação de cupom
-    const validCoupons = [
-      { code: "WELCOME10", discount: 10, type: "percentage" },
-      { code: "SAVE5", discount: 5, type: "fixed" },
-      { code: "LEGENDARY20", discount: 20, type: "percentage" },
-    ];
+    console.log("🎫 Tentando aplicar cupom:", couponCode);
 
-    const coupon = validCoupons.find(
-      (c) => c.code.toLowerCase() === couponCode.toLowerCase()
+    // Obter customer ID da sessão
+    const session = Store.getSession();
+    const customerId = session?.user?.id;
+    const subtotal = getSubtotal();
+
+    console.log("👤 Customer ID:", customerId);
+    console.log("💰 Subtotal:", subtotal);
+
+    // Validar cupom usando CouponService
+    const validation = CouponService.validateCoupon(
+      couponCode,
+      customerId,
+      subtotal
     );
 
-    if (coupon) {
-      setAppliedCoupon(coupon);
+    console.log("✅ Resultado da validação:", validation);
+
+    if (validation.isValid && validation.coupon) {
+      const newCoupon = validation.coupon;
+
+      // Validar regras de múltiplos cupons
+      const promotionalCoupons = appliedCoupons.filter(
+        (c) => c.category === "promotional"
+      );
+
+      // Regra: Apenas 1 cupom promocional permitido
+      if (
+        newCoupon.category === "promotional" &&
+        promotionalCoupons.length > 0
+      ) {
+        setCouponError(
+          "Você já aplicou um cupom promocional. Apenas um cupom promocional é permitido por pedido."
+        );
+        return;
+      }
+
+      // Regra: Não adicionar cupom duplicado
+      if (appliedCoupons.some((c) => c.code === newCoupon.code)) {
+        setCouponError("Este cupom já foi aplicado.");
+        return;
+      }
+
+      setAppliedCoupons([...appliedCoupons, newCoupon]);
       setCouponCode("");
+      console.log("✅ Cupom aplicado com sucesso!");
     } else {
-      setCouponError("Cupom inválido ou expirado");
+      setCouponError(validation.error || "Cupom inválido ou expirado");
+      console.log("❌ Erro:", validation.error);
     }
   };
 
-  const removeCoupon = () => {
-    setAppliedCoupon(null);
+  const removeCoupon = (couponId: string) => {
+    setAppliedCoupons(appliedCoupons.filter((c) => c.id !== couponId));
   };
 
   const handleCheckout = () => {
+    // Salvar cupons aplicados no localStorage para usar no checkout
+    localStorage.setItem("appliedCoupons", JSON.stringify(appliedCoupons));
     navigate("/checkout");
   };
 
   const handleClearCart = () => {
     Store.clearCart();
-    setAppliedCoupon(null);
+    setAppliedCoupons([]);
   };
 
   if (cartItems.length === 0) {
@@ -311,15 +347,16 @@ const Carrinho: React.FC = () => {
                     size="small"
                     placeholder="Digite o cupom"
                     value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value)}
-                    disabled={!!appliedCoupon}
+                    onChange={(e) =>
+                      setCouponCode(e.target.value.toUpperCase())
+                    }
                     fullWidth
                   />
                   <Button
                     variant="outlined"
                     size="small"
                     onClick={applyCoupon}
-                    disabled={!couponCode || !!appliedCoupon}
+                    disabled={!couponCode}
                   >
                     Aplicar
                   </Button>
@@ -331,21 +368,40 @@ const Carrinho: React.FC = () => {
                   </Alert>
                 )}
 
-                {appliedCoupon && (
-                  <Alert
-                    severity="success"
-                    action={
-                      <Button
-                        size="small"
-                        color="inherit"
-                        onClick={removeCoupon}
+                {appliedCoupons.length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    {appliedCoupons.map((coupon) => (
+                      <Alert
+                        key={coupon.id}
+                        severity="success"
+                        sx={{ mb: 1 }}
+                        action={
+                          <Button
+                            size="small"
+                            color="inherit"
+                            onClick={() => removeCoupon(coupon.id)}
+                          >
+                            Remover
+                          </Button>
+                        }
                       >
-                        Remover
-                      </Button>
-                    }
-                  >
-                    Cupom {appliedCoupon.code} aplicado!
-                  </Alert>
+                        <Box>
+                          <Typography variant="body2" fontWeight="bold">
+                            {coupon.code} (
+                            {coupon.category === "promotional"
+                              ? "Promocional"
+                              : "Troca"}
+                            )
+                          </Typography>
+                          <Typography variant="caption">
+                            {coupon.type === "percentage"
+                              ? `${coupon.discount}% de desconto`
+                              : `R$ ${coupon.discount.toFixed(2)} de desconto`}
+                          </Typography>
+                        </Box>
+                      </Alert>
+                    ))}
+                  </Box>
                 )}
               </Box>
 
@@ -359,7 +415,7 @@ const Carrinho: React.FC = () => {
                 <Typography>R$ {getSubtotal().toFixed(2)}</Typography>
               </Box>
 
-              {appliedCoupon && (
+              {appliedCoupons.length > 0 && (
                 <Box
                   sx={{
                     display: "flex",
@@ -368,7 +424,8 @@ const Carrinho: React.FC = () => {
                   }}
                 >
                   <Typography color="success.main">
-                    Desconto ({appliedCoupon.code}):
+                    Desconto Total ({appliedCoupons.length}{" "}
+                    {appliedCoupons.length === 1 ? "cupom" : "cupons"}):
                   </Typography>
                   <Typography color="success.main">
                     -R$ {getDiscount().toFixed(2)}

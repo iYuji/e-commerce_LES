@@ -3,8 +3,6 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log("🌱 Iniciando seed do banco de dados...");
-
   // Limpar dados existentes
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
@@ -102,10 +100,6 @@ async function main() {
       },
     ],
   });
-
-  console.log(`✅ Seed concluído!`);
-  console.log(`📊 Criados ${customers.count} clientes`);
-  console.log(`🎴 Criadas ${cards.count} cartas`);
 }
 
 main()
