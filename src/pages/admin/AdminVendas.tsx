@@ -2,6 +2,11 @@ import React, { useState, useEffect } from "react";
 import {
   Box,
   Typography,
+  Card,
+  CardContent,
+  Grid,
+  Chip,
+  Button,
   Table,
   TableBody,
   TableCell,
@@ -9,395 +14,373 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Chip,
-  Grid,
-  Card,
-  CardContent,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Button,
-  Pagination,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  TextField,
+  MenuItem,
   Alert,
+  Collapse,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  Tooltip,
 } from "@mui/material";
 import {
   Visibility,
-  GetApp,
-  TrendingUp,
-  TrendingDown,
-  Timeline,
+  Edit,
   CheckCircle,
-  LocalShipping,
-  Payment,
   Cancel,
+  LocalShipping,
+  Receipt,
+  FilterList,
+  ExpandMore,
+  ExpandLess,
+  Refresh,
 } from "@mui/icons-material";
 import * as Store from "../../store/index";
-import { Order, Card as CardType, Customer } from "../../types";
+import { Order, OrderStatus, Customer } from "../../types";
 
-const ITEMS_PER_PAGE = 10;
+const statusColors: Record<
+  OrderStatus,
+  "default" | "primary" | "secondary" | "error" | "info" | "success" | "warning"
+> = {
+  pending: "warning",
+  processing: "info",
+  shipped: "primary",
+  delivered: "success",
+  cancelled: "error",
+};
+
+const statusLabels: Record<OrderStatus, string> = {
+  pending: "Pendente",
+  processing: "Processando",
+  shipped: "Enviado",
+  delivered: "Entregue",
+  cancelled: "Cancelado",
+};
 
 const AdminVendas: React.FC = () => {
-  // ============================================
-  // ESTADOS DO COMPONENTE
-  // ============================================
-
-  // Estados para armazenar os dados carregados do sistema
   const [orders, setOrders] = useState<Order[]>([]);
-  const [cards, setCards] = useState<CardType[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // NOVO: Estado para armazenar os clientes
+  // Isso é essencial para podermos buscar o nome do cliente pelo ID
   const [customers, setCustomers] = useState<Customer[]>([]);
 
-  // Estados para controle de filtros e paginação
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [page, setPage] = useState(0);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [periodFilter, setPeriodFilter] = useState("all");
+  // Estados para os filtros de busca
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | "">("");
+  const [searchTerm, setSearchTerm] = useState("");
 
-  // Estados para controle do dialog de detalhes
+  // Estados para controle dos diálogos
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [editStatusOpen, setEditStatusOpen] = useState(false);
+  const [newStatus, setNewStatus] = useState<OrderStatus>("pending");
 
-  // ============================================
-  // EFEITOS E CARREGAMENTO DE DADOS
-  // ============================================
+  // Estado para controlar expansão de linhas na tabela
+  const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  /**
-   * Este useEffect é executado apenas uma vez quando o componente é montado.
-   * Ele carrega os dados iniciais e configura um listener para escutar
-   * atualizações em tempo real quando pedidos são criados/modificados
-   * em outras partes do sistema.
-   */
+  // Estado para mensagens de feedback ao usuário
+  const [alert, setAlert] = useState<{
+    show: boolean;
+    message: string;
+    severity: "success" | "error" | "info";
+  }>({ show: false, message: "", severity: "info" });
+
+  // ============================================================================
+  // EFEITO DE CARREGAMENTO INICIAL
+  // Este useEffect executa quando o componente é montado pela primeira vez
+  // ============================================================================
+
   useEffect(() => {
-    loadData();
+    loadOrders();
 
-    // Listener para recarregar quando houver novos pedidos
-    // Isso garante que o painel se atualiza automaticamente quando:
-    // - Um novo pedido é criado na área do cliente
-    // - Um pedido é atualizado no AdminPedidos
+    // Listener para atualizar automaticamente quando houver novos pedidos
+    // Este evento é disparado quando um novo pedido é criado no checkout
     const handleOrdersUpdate = () => {
-      console.log("🔄 AdminVendas: Pedidos atualizados, recarregando...");
-      loadData();
+      console.log("📦 Pedidos atualizados, recarregando lista...");
+      loadOrders();
     };
 
-    // Registrar o listener no sistema de eventos do navegador
     window.addEventListener("orders:updated", handleOrdersUpdate);
 
-    // Cleanup: remover listener quando componente desmontar
-    // Isso previne memory leaks e erros quando o componente é destruído
+    // Cleanup: remove o listener quando o componente é desmontado
+    // Isso previne memory leaks e múltiplos listeners acumulados
     return () => {
       window.removeEventListener("orders:updated", handleOrdersUpdate);
     };
-  }, []); // Array vazio = executa apenas uma vez na montagem
+  }, []);
 
-  /**
-   * Este useEffect aplica os filtros sempre que os dados ou
-   * configurações de filtro mudam. É como um "processador automático"
-   * que reage a mudanças e atualiza a lista filtrada.
-   */
+  // ============================================================================
+  // EFEITO DE APLICAÇÃO DE FILTROS
+  // Sempre que os pedidos ou filtros mudarem, reaplica a filtragem
+  // ============================================================================
+
   useEffect(() => {
     applyFilters();
-  }, [orders, statusFilter, periodFilter]);
+  }, [orders, statusFilter, searchTerm]);
 
-  /**
-   * Função que carrega todos os dados necessários do localStorage.
-   * Usamos logs detalhados para facilitar o debug e entender
-   * o que está acontecendo no sistema.
-   */
-  const loadData = () => {
-    const loadedOrders = Store.getOrders();
-    const loadedCards = Store.getCards();
-    const loadedCustomers = Store.getCustomers();
+  // ============================================================================
+  // FUNÇÃO DE CARREGAMENTO PRINCIPAL
+  // Esta função busca os pedidos do Store e os ordena com os mais novos primeiro
+  // AGORA TAMBÉM CARREGA OS CLIENTES para podermos exibir os nomes
+  // ============================================================================
 
-    console.log("📊 AdminVendas - Carregando dados:");
-    console.log("  📦 Total de pedidos:", loadedOrders.length);
-    console.log("  🎴 Total de cartas:", loadedCards.length);
-    console.log("  👥 Total de clientes:", loadedCustomers.length);
+  const loadOrders = async () => {
+    setLoading(true);
 
-    // Log dos últimos 3 pedidos para debug
-    if (loadedOrders.length > 0) {
+    try {
+      // Simula um pequeno delay para dar feedback visual ao usuário
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Busca todos os pedidos do Store (localStorage)
+      const allOrders = Store.getOrders();
+
+      // IMPORTANTE: Carrega também todos os clientes do sistema
+      // Precisamos deles para poder converter customerId em nome do cliente
+      const allCustomers = Store.getCustomers();
+      setCustomers(allCustomers);
+
       console.log(
-        "  🔍 Últimos 3 pedidos:",
-        loadedOrders.slice(-3).map((o) => ({
-          id: o.id,
-          customerId: o.customerId,
-          total: o.total,
-          status: o.status,
-        }))
+        `📋 ${allCustomers.length} clientes carregados para referência`
       );
-    }
 
-    setOrders(loadedOrders);
-    setCards(loadedCards);
-    setCustomers(loadedCustomers);
+      // Cria uma cópia do array de pedidos para não modificar o original
+      const ordersToSort = [...allOrders];
+
+      // ORDENAÇÃO REVERSA: Pedidos mais novos aparecem primeiro!
+      // Isso é muito importante para a usabilidade do admin
+      // Os pedidos mais recentes geralmente precisam de atenção imediata
+      ordersToSort.sort((a, b) => {
+        const dateA = new Date(a.createdAt).getTime();
+        const dateB = new Date(b.createdAt).getTime();
+
+        // Subtração invertida: dateB - dateA
+        // Se B é mais recente (número maior em milissegundos), resultado é positivo
+        // Isso coloca B antes de A na lista ordenada
+        return dateB - dateA;
+      });
+
+      console.log(
+        `✅ ${ordersToSort.length} pedidos carregados e ordenados (mais novos primeiro)`
+      );
+
+      setOrders(ordersToSort);
+      setFilteredOrders(ordersToSort);
+    } catch (error) {
+      console.error("❌ Erro ao carregar pedidos:", error);
+      showAlert("Erro ao carregar pedidos", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  /**
-   * Aplica os filtros de status e período aos pedidos.
-   * Esta função implementa uma lógica de filtragem em múltiplas etapas:
-   * 1. Filtra por status (se selecionado)
-   * 2. Filtra por período de tempo (se selecionado)
-   * 3. Ordena por data (mais recentes primeiro)
-   */
-  const applyFilters = () => {
-    let filtered = orders;
+  // ============================================================================
+  // NOVA FUNÇÃO: Busca o nome do cliente pelo ID
+  // Esta é a função chave que resolve o problema do nome do cliente!
+  // ============================================================================
 
-    // Filtro de status
+  /**
+   * Busca e retorna o nome de um cliente baseado no seu ID
+   *
+   * Como funciona:
+   * 1. Recebe o customerId (ex: "customer_1761578700457")
+   * 2. Procura esse ID na lista de clientes carregada
+   * 3. Se encontrar, retorna o nome completo do cliente
+   * 4. Se não encontrar, retorna uma versão legível do ID
+   *
+   * Por que fazemos isso?
+   * - Os pedidos guardam apenas o ID do cliente, não todos os dados
+   * - Isso evita duplicação de informações
+   * - Garante que sempre mostramos dados atualizados do cliente
+   * - Se o cliente mudar o nome, a mudança aparece em todos os pedidos
+   */
+  const getCustomerName = (customerId: string): string => {
+    // Procura o cliente na lista de clientes carregada
+    const customer = customers.find((c) => c.id === customerId);
+
+    if (customer) {
+      // Se encontrou o cliente, retorna o nome completo dele
+      return customer.name;
+    }
+
+    // Se não encontrou (caso raro, mas pode acontecer se o cliente foi deletado)
+    // Retorna uma versão encurtada e legível do ID
+    // Pega apenas os últimos 6 caracteres para ficar mais compacto
+    return `Cliente #${customerId.slice(-6)}`;
+  };
+
+  // ============================================================================
+  // FUNÇÃO DE APLICAÇÃO DE FILTROS
+  // Filtra a lista de pedidos baseado nos critérios selecionados pelo usuário
+  // ============================================================================
+
+  const applyFilters = () => {
+    // Começa com todos os pedidos já ordenados
+    let filtered = [...orders];
+
+    // Aplica filtro por status se algum foi selecionado
     if (statusFilter) {
       filtered = filtered.filter((order) => order.status === statusFilter);
     }
 
-    // Filtro de período
-    if (periodFilter !== "all") {
-      const now = new Date();
-      const filterDate = new Date();
+    // Aplica filtro por termo de busca
+    // Busca tanto no ID do pedido quanto no nome do cliente
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter((order) => {
+        // Busca no ID do pedido
+        const matchesOrderId = order.id.toLowerCase().includes(searchLower);
 
-      // Calcula a data de corte baseada no período selecionado
-      switch (periodFilter) {
-        case "today":
-          filterDate.setHours(0, 0, 0, 0);
-          break;
-        case "week":
-          filterDate.setDate(now.getDate() - 7);
-          break;
-        case "month":
-          filterDate.setMonth(now.getMonth() - 1);
-          break;
-        case "quarter":
-          filterDate.setMonth(now.getMonth() - 3);
-          break;
-        case "year":
-          filterDate.setFullYear(now.getFullYear() - 1);
-          break;
-      }
+        // NOVO: Busca também no nome do cliente
+        // Isso permite que o admin procure por "João" e encontre todos os pedidos do João
+        const customerName = getCustomerName(order.customerId).toLowerCase();
+        const matchesCustomerName = customerName.includes(searchLower);
 
-      // Filtra pedidos que são mais recentes que a data de corte
-      filtered = filtered.filter(
-        (order) => new Date(order.createdAt) >= filterDate
-      );
+        // Retorna true se encontrou em qualquer um dos dois
+        return matchesOrderId || matchesCustomerName;
+      });
     }
 
+    // A ordenação reversa (mais novos primeiro) é mantida automaticamente
+    // porque já ordenamos no loadOrders e o filter não altera a ordem
     setFilteredOrders(filtered);
-    setPage(0); // Resetar para primeira página quando filtros mudam
   };
 
-  // ============================================
-  // FUNÇÕES AUXILIARES
-  // ============================================
+  // ============================================================================
+  // FUNÇÕES DE CONTROLE DE DIÁLOGOS
+  // ============================================================================
 
-  /**
-   * Busca o nome do cliente pelo ID.
-   * Retorna "Cliente Desconhecido" se não encontrar (dados inconsistentes).
-   */
-  const getCustomerName = (customerId: string) => {
-    const customer = customers.find((c) => c.id === customerId);
-    return customer ? customer.name : "Cliente Desconhecido";
-  };
-
-  /**
-   * Retorna a cor do chip baseada no status do pedido.
-   * Usamos cores semânticas do Material-UI para facilitar
-   * a identificação visual rápida do status.
-   */
-  const getOrderStatusColor = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "pending":
-        return "warning"; // Amarelo - precisa atenção
-      case "confirmed":
-        return "info"; // Azul - informativo
-      case "processing":
-        return "primary"; // Azul primário - em andamento
-      case "shipped":
-        return "secondary"; // Roxo - aguardando entrega
-      case "delivered":
-        return "success"; // Verde - sucesso
-      case "cancelled":
-        return "error"; // Vermelho - problema
-      default:
-        return "default"; // Cinza - desconhecido
-    }
-  };
-
-  /**
-   * Converte o status técnico (em inglês) para um label
-   * amigável em português para exibir ao usuário.
-   */
-  const getOrderStatusLabel = (status: string) => {
-    const labels: { [key: string]: string } = {
-      pending: "Pendente",
-      confirmed: "Confirmado",
-      processing: "Processando",
-      shipped: "Enviado",
-      delivered: "Entregue",
-      cancelled: "Cancelado",
-    };
-    return labels[status.toLowerCase()] || status;
-  };
-
-  /**
-   * NOVA FUNÇÃO: Atualiza o status de um pedido.
-   * Esta função é crucial para o gerenciamento de pedidos e liberação de trocas.
-   * Ela faz várias coisas importantes:
-   * 1. Busca o pedido no localStorage
-   * 2. Atualiza seu status
-   * 3. Salva de volta no localStorage
-   * 4. Notifica outros componentes da mudança
-   * 5. Atualiza a UI local
-   */
-  const handleUpdateOrderStatus = (orderId: string, newStatus: string) => {
-    const allOrders = Store.getOrders();
-    const orderIndex = allOrders.findIndex((o) => o.id === orderId);
-
-    if (orderIndex === -1) {
-      console.error("❌ Pedido não encontrado");
-      return;
-    }
-
-    console.log(`📝 Atualizando status do pedido ${orderId}:`);
-    console.log(`   De: ${allOrders[orderIndex].status}`);
-    console.log(`   Para: ${newStatus}`);
-
-    // Atualizar o status do pedido
-    allOrders[orderIndex].status = newStatus as Order["status"];
-
-    // Salvar no localStorage
-    Store.writeStore(Store.STORE_KEYS.orders, allOrders);
-
-    // Disparar evento para outros componentes saberem da mudança
-    // Isso garante que AdminPedidos, AdminTrocas, etc. sejam atualizados
-    console.log("📢 Disparando evento orders:updated...");
-    window.dispatchEvent(new CustomEvent("orders:updated"));
-
-    // Recarregar dados locais
-    loadData();
-
-    // Se o dialog de detalhes estiver aberto, atualizar o pedido selecionado
-    if (selectedOrder?.id === orderId) {
-      setSelectedOrder(allOrders[orderIndex]);
-    }
-
-    console.log("✅ Status atualizado com sucesso!");
-  };
-
-  /**
-   * Abre o dialog de detalhes com o pedido selecionado.
-   */
   const handleViewDetails = (order: Order) => {
     setSelectedOrder(order);
     setDetailsOpen(true);
   };
 
-  /**
-   * Calcula estatísticas agregadas dos pedidos filtrados.
-   * Estas métricas ajudam a ter uma visão geral rápida do negócio.
-   */
-  const calculateStats = () => {
-    const totalOrders = filteredOrders.length;
-    const totalRevenue = filteredOrders.reduce(
-      (sum, order) => sum + order.total,
-      0
-    );
-    const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-    const completedOrders = filteredOrders.filter(
-      (order) => order.status === "delivered"
-    ).length;
-    const completionRate =
-      totalOrders > 0 ? (completedOrders / totalOrders) * 100 : 0;
+  const handleOpenEditStatus = (order: Order) => {
+    setSelectedOrder(order);
+    setNewStatus(order.status);
+    setEditStatusOpen(true);
+  };
 
-    // Calcular crescimento comparado ao período anterior
-    // Isso ajuda a entender se as vendas estão crescendo ou caindo
-    const currentPeriodStart = new Date();
-    if (periodFilter === "month") {
-      currentPeriodStart.setMonth(currentPeriodStart.getMonth() - 1);
-    } else if (periodFilter === "week") {
-      currentPeriodStart.setDate(currentPeriodStart.getDate() - 7);
+  const handleUpdateStatus = () => {
+    if (!selectedOrder) return;
+
+    const success = Store.updateOrderStatus(selectedOrder.id, newStatus);
+
+    if (success) {
+      showAlert(
+        `Status do pedido ${selectedOrder.id} atualizado com sucesso!`,
+        "success"
+      );
+      setEditStatusOpen(false);
+      loadOrders();
+
+      // Notifica outros componentes sobre a mudança
+      window.dispatchEvent(new CustomEvent("orders:updated"));
     } else {
-      currentPeriodStart.setDate(currentPeriodStart.getDate() - 30);
+      showAlert("Erro ao atualizar status do pedido", "error");
     }
+  };
 
-    const previousPeriodOrders = orders.filter((order) => {
-      const orderDate = new Date(order.createdAt);
-      const prevStart = new Date(currentPeriodStart);
-      const prevEnd = new Date(currentPeriodStart);
+  const handleCancelOrder = (orderId: string) => {
+    if (
+      window.confirm(
+        "Tem certeza que deseja cancelar este pedido? O estoque será restaurado."
+      )
+    ) {
+      const success = Store.cancelOrder(orderId);
 
-      if (periodFilter === "month") {
-        prevStart.setMonth(prevStart.getMonth() - 1);
-      } else if (periodFilter === "week") {
-        prevStart.setDate(prevStart.getDate() - 7);
-        prevEnd.setDate(prevEnd.getDate() - 7);
+      if (success) {
+        showAlert(
+          "Pedido cancelado com sucesso! Estoque restaurado.",
+          "success"
+        );
+        loadOrders();
+        window.dispatchEvent(new CustomEvent("orders:updated"));
       } else {
-        prevStart.setDate(prevStart.getDate() - 30);
-        prevEnd.setDate(prevEnd.getDate() - 30);
+        showAlert(
+          "Não foi possível cancelar este pedido. Verifique se ele já foi enviado ou entregue.",
+          "error"
+        );
       }
+    }
+  };
 
-      return orderDate >= prevStart && orderDate <= prevEnd;
-    });
+  const showAlert = (
+    message: string,
+    severity: "success" | "error" | "info"
+  ) => {
+    setAlert({ show: true, message, severity });
+    setTimeout(() => {
+      setAlert({ show: false, message: "", severity: "info" });
+    }, 5000);
+  };
 
-    const previousRevenue = previousPeriodOrders.reduce(
-      (sum, order) => sum + order.total,
-      0
+  const handleToggleRow = (orderId: string) => {
+    setExpandedRow(expandedRow === orderId ? null : orderId);
+  };
+
+  const clearFilters = () => {
+    setStatusFilter("");
+    setSearchTerm("");
+  };
+
+  // ============================================================================
+  // FUNÇÕES AUXILIARES
+  // ============================================================================
+
+  const getStatusIcon = (status: OrderStatus) => {
+    switch (status) {
+      case "delivered":
+        return <CheckCircle />;
+      case "shipped":
+        return <LocalShipping />;
+      case "cancelled":
+        return <Cancel />;
+      default:
+        return <Receipt />;
+    }
+  };
+
+  const calculateTotalRevenue = () => {
+    return filteredOrders
+      .filter((order) => order.status !== "cancelled")
+      .reduce((sum, order) => sum + order.total, 0);
+  };
+
+  const getOrdersByStatus = (status: OrderStatus) => {
+    return orders.filter((order) => order.status === status).length;
+  };
+
+  // ============================================================================
+  // RENDERIZAÇÃO - LOADING STATE
+  // ============================================================================
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Typography variant="h4" gutterBottom>
+          Gerenciamento de Vendas
+        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+          <Typography>Carregando pedidos...</Typography>
+        </Box>
+      </Box>
     );
-    const revenueGrowth =
-      previousRevenue > 0
-        ? ((totalRevenue - previousRevenue) / previousRevenue) * 100
-        : 0;
+  }
 
-    return {
-      totalOrders,
-      totalRevenue,
-      averageOrderValue,
-      completionRate,
-      revenueGrowth,
-    };
-  };
-
-  /**
-   * Exporta os dados filtrados para um arquivo CSV.
-   * Útil para análises externas ou relatórios.
-   */
-  const exportData = () => {
-    const csvContent = [
-      ["ID", "Data", "Cliente", "Status", "Total"].join(","),
-      ...filteredOrders.map((order) =>
-        [
-          order.id,
-          new Date(order.createdAt).toLocaleDateString(),
-          getCustomerName(order.customerId),
-          getOrderStatusLabel(order.status),
-          order.total.toFixed(2),
-        ].join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `vendas_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-  };
-
-  // ============================================
-  // PREPARAÇÃO DE DADOS PARA RENDERIZAÇÃO
-  // ============================================
-
-  const stats = calculateStats();
-  const paginatedOrders = filteredOrders.slice(
-    page * ITEMS_PER_PAGE,
-    (page + 1) * ITEMS_PER_PAGE
-  );
-
-  // ============================================
-  // RENDERIZAÇÃO DO COMPONENTE
-  // ============================================
+  // ============================================================================
+  // RENDERIZAÇÃO PRINCIPAL
+  // ============================================================================
 
   return (
     <Box>
-      {/* Cabeçalho com título e botão de exportação */}
+      {/* Header com título e botão de atualização */}
       <Box
         sx={{
           display: "flex",
@@ -407,69 +390,33 @@ const AdminVendas: React.FC = () => {
         }}
       >
         <Typography variant="h4" component="h1">
-          Relatório de Vendas
+          Gerenciamento de Vendas
         </Typography>
-        <Button variant="outlined" startIcon={<GetApp />} onClick={exportData}>
-          Exportar CSV
+        <Button variant="outlined" startIcon={<Refresh />} onClick={loadOrders}>
+          Atualizar
         </Button>
       </Box>
 
-      {/* Cards de Estatísticas */}
+      {/* Alert de feedback para o usuário */}
+      {alert.show && (
+        <Alert
+          severity={alert.severity}
+          sx={{ mb: 3 }}
+          onClose={() => setAlert({ ...alert, show: false })}
+        >
+          {alert.message}
+        </Alert>
+      )}
+
+      {/* Cards de resumo com estatísticas gerais */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Total de Pedidos
-                  </Typography>
-                  <Typography variant="h5">{stats.totalOrders}</Typography>
-                </Box>
-                <Timeline color="primary" />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <Box>
-                  <Typography color="textSecondary" gutterBottom>
-                    Receita Total
-                  </Typography>
-                  <Typography variant="h5" color="primary">
-                    R$ {stats.totalRevenue.toFixed(2)}
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    color={
-                      stats.revenueGrowth >= 0 ? "success.main" : "error.main"
-                    }
-                  >
-                    {stats.revenueGrowth >= 0 ? "+" : ""}
-                    {stats.revenueGrowth.toFixed(1)}% vs período anterior
-                  </Typography>
-                </Box>
-                {stats.revenueGrowth >= 0 ? (
-                  <TrendingUp color="success" />
-                ) : (
-                  <TrendingDown color="error" />
-                )}
-              </Box>
+              <Typography color="textSecondary" gutterBottom>
+                Total de Pedidos
+              </Typography>
+              <Typography variant="h4">{orders.length}</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -477,10 +424,10 @@ const AdminVendas: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Ticket Médio
+                Receita Total
               </Typography>
-              <Typography variant="h5">
-                R$ {stats.averageOrderValue.toFixed(2)}
+              <Typography variant="h4" color="primary">
+                R$ {calculateTotalRevenue().toFixed(2)}
               </Typography>
             </CardContent>
           </Card>
@@ -489,146 +436,323 @@ const AdminVendas: React.FC = () => {
           <Card>
             <CardContent>
               <Typography color="textSecondary" gutterBottom>
-                Taxa de Conversão
+                Pendentes
               </Typography>
-              <Typography variant="h5">
-                {stats.completionRate.toFixed(1)}%
+              <Typography variant="h4" color="warning.main">
+                {getOrdersByStatus("pending")}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Entregues
+              </Typography>
+              <Typography variant="h4" color="success.main">
+                {getOrdersByStatus("delivered")}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Filtros */}
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Período</InputLabel>
-              <Select
-                value={periodFilter}
-                label="Período"
-                onChange={(e) => setPeriodFilter(e.target.value)}
-              >
-                <MenuItem value="all">Todos os tempos</MenuItem>
-                <MenuItem value="today">Hoje</MenuItem>
-                <MenuItem value="week">Última semana</MenuItem>
-                <MenuItem value="month">Último mês</MenuItem>
-                <MenuItem value="quarter">Últimos 3 meses</MenuItem>
-                <MenuItem value="year">Último ano</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth>
-              <InputLabel>Status</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Status"
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                <MenuItem value="">Todos</MenuItem>
-                <MenuItem value="pending">Pendente</MenuItem>
-                <MenuItem value="confirmed">Confirmado</MenuItem>
-                <MenuItem value="processing">Processando</MenuItem>
-                <MenuItem value="shipped">Enviado</MenuItem>
-                <MenuItem value="delivered">Entregue</MenuItem>
-                <MenuItem value="cancelled">Cancelado</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid item xs={12} md={3}>
-            <Button
+      {/* Seção de filtros */}
+      <Card sx={{ mb: 3, p: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+          <FilterList />
+          <Typography variant="h6">Filtros</Typography>
+          <Button size="small" onClick={clearFilters}>
+            Limpar Filtros
+          </Button>
+        </Box>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
               fullWidth
-              variant="outlined"
-              onClick={() => {
-                setStatusFilter("");
-                setPeriodFilter("all");
-              }}
+              label="Buscar por ID do Pedido ou Nome do Cliente"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              size="small"
+              placeholder="Ex: João Silva ou ORD-123"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              fullWidth
+              select
+              label="Status"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as OrderStatus)}
+              size="small"
             >
-              Limpar Filtros
-            </Button>
+              <MenuItem value="">Todos</MenuItem>
+              {Object.entries(statusLabels).map(([status, label]) => (
+                <MenuItem key={status} value={status}>
+                  {label}
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
         </Grid>
-      </Paper>
+      </Card>
 
-      {/* Tabela de Pedidos */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>ID do Pedido</TableCell>
-              <TableCell>Data</TableCell>
-              <TableCell>Cliente</TableCell>
-              <TableCell>Itens</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Total</TableCell>
-              <TableCell align="center">Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {paginatedOrders.map((order) => (
-              <TableRow key={order.id} hover>
-                <TableCell>
-                  <Typography variant="body2" fontWeight="bold">
-                    #{order.id}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    {new Date(order.createdAt).toLocaleDateString()}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {new Date(order.createdAt).toLocaleTimeString()}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    {getCustomerName(order.customerId)}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2">
-                    {order.items.length}{" "}
-                    {order.items.length === 1 ? "item" : "itens"}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={getOrderStatusLabel(order.status)}
-                    size="small"
-                    color={getOrderStatusColor(order.status) as any}
-                  />
-                </TableCell>
-                <TableCell align="right">
-                  <Typography variant="body2" fontWeight="bold" color="primary">
-                    R$ {order.total.toFixed(2)}
-                  </Typography>
-                </TableCell>
-                <TableCell align="center">
-                  <IconButton
-                    size="small"
-                    onClick={() => handleViewDetails(order)}
-                    title="Ver Detalhes"
-                  >
-                    <Visibility />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      {/* Tabela principal de pedidos */}
+      <Card>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Lista de Pedidos (Mais Recentes Primeiro)
+          </Typography>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            {filteredOrders.length} pedido(s) encontrado(s)
+          </Typography>
 
-      {/* Paginação */}
-      <Box sx={{ display: "flex", justifyContent: "center", mt: 3 }}>
-        <Pagination
-          count={Math.ceil(filteredOrders.length / ITEMS_PER_PAGE)}
-          page={page + 1}
-          onChange={(_, newPage) => setPage(newPage - 1)}
-          color="primary"
-        />
-      </Box>
+          {filteredOrders.length === 0 ? (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Nenhum pedido encontrado com os filtros selecionados.
+            </Alert>
+          ) : (
+            <TableContainer component={Paper} sx={{ mt: 2 }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell width="50px"></TableCell>
+                    <TableCell>ID do Pedido</TableCell>
+                    <TableCell>Data</TableCell>
+                    <TableCell>Cliente</TableCell>
+                    <TableCell>Itens</TableCell>
+                    <TableCell>Total</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell align="center">Ações</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {filteredOrders.map((order) => (
+                    <React.Fragment key={order.id}>
+                      {/* Linha principal do pedido */}
+                      <TableRow
+                        hover
+                        sx={{
+                          backgroundColor:
+                            expandedRow === order.id
+                              ? "action.hover"
+                              : "inherit",
+                        }}
+                      >
+                        <TableCell>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleToggleRow(order.id)}
+                          >
+                            {expandedRow === order.id ? (
+                              <ExpandLess />
+                            ) : (
+                              <ExpandMore />
+                            )}
+                          </IconButton>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="bold">
+                            #{order.id.slice(-8).toUpperCase()}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {new Date(order.createdAt).toLocaleDateString(
+                              "pt-BR",
+                              {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              }
+                            )}
+                          </Typography>
+                        </TableCell>
+                        {/* AQUI ESTÁ A MUDANÇA PRINCIPAL! */}
+                        {/* Agora exibimos o nome real do cliente usando nossa função */}
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {getCustomerName(order.customerId)}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            ID: {order.customerId.slice(-8)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">
+                            {order.items.length} item(s)
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="body2"
+                            fontWeight="bold"
+                            color="primary"
+                          >
+                            R$ {order.total.toFixed(2)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            icon={getStatusIcon(order.status)}
+                            label={statusLabels[order.status]}
+                            color={statusColors[order.status]}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Box
+                            sx={{
+                              display: "flex",
+                              gap: 0.5,
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Tooltip title="Ver Detalhes">
+                              <IconButton
+                                size="small"
+                                color="primary"
+                                onClick={() => handleViewDetails(order)}
+                              >
+                                <Visibility />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Editar Status">
+                              <IconButton
+                                size="small"
+                                color="info"
+                                onClick={() => handleOpenEditStatus(order)}
+                              >
+                                <Edit />
+                              </IconButton>
+                            </Tooltip>
+                            {(order.status === "pending" ||
+                              order.status === "processing") && (
+                              <Tooltip title="Cancelar Pedido">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleCancelOrder(order.id)}
+                                >
+                                  <Cancel />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+
+                      {/* Linha expandida com detalhes dos itens do pedido */}
+                      <TableRow>
+                        <TableCell
+                          colSpan={8}
+                          sx={{
+                            p: 0,
+                            borderBottom:
+                              expandedRow === order.id ? undefined : 0,
+                          }}
+                        >
+                          <Collapse
+                            in={expandedRow === order.id}
+                            timeout="auto"
+                            unmountOnExit
+                          >
+                            <Box
+                              sx={{
+                                p: 2,
+                                backgroundColor: "background.default",
+                              }}
+                            >
+                              <Typography variant="subtitle2" gutterBottom>
+                                Itens do Pedido:
+                              </Typography>
+                              <List dense>
+                                {order.items.map((item, index) => (
+                                  <ListItem key={index}>
+                                    <ListItemText
+                                      primary={
+                                        <Box
+                                          sx={{
+                                            display: "flex",
+                                            justifyContent: "space-between",
+                                          }}
+                                        >
+                                          <Typography variant="body2">
+                                            {item.card?.name ||
+                                              "Produto não encontrado"}{" "}
+                                            × {item.quantity}
+                                          </Typography>
+                                          <Typography
+                                            variant="body2"
+                                            fontWeight="bold"
+                                          >
+                                            R${" "}
+                                            {(
+                                              (item.card?.price || 0) *
+                                              item.quantity
+                                            ).toFixed(2)}
+                                          </Typography>
+                                        </Box>
+                                      }
+                                      secondary={
+                                        <Box
+                                          sx={{
+                                            display: "flex",
+                                            gap: 1,
+                                            mt: 0.5,
+                                          }}
+                                        >
+                                          {item.card?.type && (
+                                            <Chip
+                                              label={item.card.type}
+                                              size="small"
+                                            />
+                                          )}
+                                          {item.card?.rarity && (
+                                            <Chip
+                                              label={item.card.rarity}
+                                              size="small"
+                                            />
+                                          )}
+                                        </Box>
+                                      }
+                                    />
+                                  </ListItem>
+                                ))}
+                              </List>
+                              <Divider sx={{ my: 1 }} />
+                              <Box
+                                sx={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  px: 2,
+                                }}
+                              >
+                                <Typography variant="body2">
+                                  <strong>Endereço:</strong>{" "}
+                                  {order.shippingAddress?.address ||
+                                    "Não informado"}
+                                </Typography>
+                                <Typography variant="body2">
+                                  <strong>Frete:</strong> R${" "}
+                                  {order.shippingCost?.toFixed(2) || "0.00"}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </Collapse>
+                        </TableCell>
+                      </TableRow>
+                    </React.Fragment>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Dialog de Detalhes do Pedido */}
       <Dialog
@@ -637,224 +761,183 @@ const AdminVendas: React.FC = () => {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Detalhes do Pedido #{selectedOrder?.id}</DialogTitle>
+        <DialogTitle>
+          Detalhes do Pedido #{selectedOrder?.id.slice(-8).toUpperCase()}
+        </DialogTitle>
         <DialogContent>
           {selectedOrder && (
-            <Box sx={{ mt: 2 }}>
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Informações do Pedido
-                      </Typography>
-                      <Box sx={{ mt: 2 }}>
-                        <Typography>
-                          <strong>Data:</strong>{" "}
-                          {new Date(selectedOrder.createdAt).toLocaleString()}
-                        </Typography>
-                        <Typography>
-                          <strong>Cliente:</strong>{" "}
-                          {getCustomerName(selectedOrder.customerId)}
-                        </Typography>
-                        <Typography sx={{ mt: 1 }}>
-                          <strong>Status:</strong>
-                        </Typography>
-                        <Chip
-                          label={getOrderStatusLabel(selectedOrder.status)}
-                          color={
-                            getOrderStatusColor(selectedOrder.status) as any
-                          }
-                          sx={{ mt: 0.5 }}
-                        />
-                        <Typography sx={{ mt: 2 }}>
-                          <strong>Total:</strong> R${" "}
-                          {selectedOrder.total.toFixed(2)}
-                        </Typography>
-                      </Box>
-                    </CardContent>
-                  </Card>
+            <Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Data do Pedido
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    {new Date(selectedOrder.createdAt).toLocaleString("pt-BR")}
+                  </Typography>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <Card>
-                    <CardContent>
-                      <Typography variant="h6" gutterBottom>
-                        Endereço de Entrega
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Status
+                  </Typography>
+                  <Chip
+                    icon={getStatusIcon(selectedOrder.status)}
+                    label={statusLabels[selectedOrder.status]}
+                    color={statusColors[selectedOrder.status]}
+                  />
+                </Grid>
+                {/* NOVO: Exibe o nome do cliente no dialog de detalhes */}
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Cliente
+                  </Typography>
+                  <Typography variant="body1" gutterBottom fontWeight="medium">
+                    {getCustomerName(selectedOrder.customerId)}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ID: {selectedOrder.customerId}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="body2" color="text.secondary">
+                    Endereço de Entrega
+                  </Typography>
+                  <Typography variant="body1" gutterBottom>
+                    {selectedOrder.shippingAddress?.address || "Não informado"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Typography variant="h6" gutterBottom>
+                    Itens do Pedido
+                  </Typography>
+                  <List>
+                    {selectedOrder.items.map((item, index) => (
+                      <ListItem key={index}>
+                        <ListItemText
+                          primary={`${item.card?.name || "Produto"} × ${
+                            item.quantity
+                          }`}
+                          secondary={
+                            <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
+                              {item.card?.type && (
+                                <Chip label={item.card.type} size="small" />
+                              )}
+                              {item.card?.rarity && (
+                                <Chip label={item.card.rarity} size="small" />
+                              )}
+                              <Typography
+                                variant="body2"
+                                sx={{ ml: "auto", fontWeight: "bold" }}
+                              >
+                                R${" "}
+                                {(
+                                  (item.card?.price || 0) * item.quantity
+                                ).toFixed(2)}
+                              </Typography>
+                            </Box>
+                          }
+                        />
+                      </ListItem>
+                    ))}
+                  </List>
+                </Grid>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2 }} />
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography>Subtotal:</Typography>
+                    <Typography>
+                      R$ {selectedOrder.subtotal?.toFixed(2) || "0.00"}
+                    </Typography>
+                  </Box>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 1,
+                    }}
+                  >
+                    <Typography>Frete:</Typography>
+                    <Typography>
+                      R$ {selectedOrder.shippingCost?.toFixed(2) || "0.00"}
+                    </Typography>
+                  </Box>
+                  {selectedOrder.discountAmount > 0 && (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 1,
+                      }}
+                    >
+                      <Typography color="success.main">Desconto:</Typography>
+                      <Typography color="success.main">
+                        -R$ {selectedOrder.discountAmount.toFixed(2)}
                       </Typography>
-                      <Box sx={{ mt: 2 }}>
-                        {selectedOrder.shippingAddress ? (
-                          <>
-                            <Typography>
-                              {selectedOrder.shippingAddress.address}
-                            </Typography>
-                            <Typography>
-                              {selectedOrder.shippingAddress.city},{" "}
-                              {selectedOrder.shippingAddress.state}
-                            </Typography>
-                            <Typography>
-                              {selectedOrder.shippingAddress.zipCode}
-                            </Typography>
-                          </>
-                        ) : (
-                          <Typography color="text.secondary">
-                            Endereço não disponível
-                          </Typography>
-                        )}
-                      </Box>
-                    </CardContent>
-                  </Card>
+                    </Box>
+                  )}
+                  <Divider sx={{ my: 1 }} />
+                  <Box
+                    sx={{ display: "flex", justifyContent: "space-between" }}
+                  >
+                    <Typography variant="h6">Total:</Typography>
+                    <Typography variant="h6" color="primary">
+                      R$ {selectedOrder.total.toFixed(2)}
+                    </Typography>
+                  </Box>
                 </Grid>
               </Grid>
-
-              <Box sx={{ mt: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Itens do Pedido
-                </Typography>
-                <TableContainer component={Paper}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Item</TableCell>
-                        <TableCell align="right">Quantidade</TableCell>
-                        <TableCell align="right">Preço Unitário</TableCell>
-                        <TableCell align="right">Subtotal</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {selectedOrder.items.map((item, index) => {
-                        /**
-                         * PROTEÇÃO CONTRA DADOS INCONSISTENTES
-                         * Aqui implementamos uma estratégia de fallback em cascata:
-                         * 1. Tenta usar item.card (dados salvos no pedido)
-                         * 2. Se não existir, busca no array de cards
-                         * 3. Se ainda não encontrar, usa valores padrão
-                         *
-                         * Isso garante que o código NUNCA vai quebrar por tentar
-                         * acessar propriedades de undefined.
-                         */
-                        const card = cards.find((c) => c.id === item.cardId);
-                        const cardData = item.card ||
-                          card || {
-                            name: "Produto Desconhecido",
-                            price: 0,
-                          };
-                        const unitPrice = cardData.price || 0;
-                        const subtotal = unitPrice * (item.quantity || 1);
-
-                        return (
-                          <TableRow key={index}>
-                            <TableCell>
-                              {cardData.name || "Produto Desconhecido"}
-                            </TableCell>
-                            <TableCell align="right">
-                              {item.quantity || 1}
-                            </TableCell>
-                            <TableCell align="right">
-                              R$ {unitPrice.toFixed(2)}
-                            </TableCell>
-                            <TableCell align="right">
-                              R$ {subtotal.toFixed(2)}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-
-              {/* Seção de Gerenciamento de Status */}
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" gutterBottom>
-                  Gerenciar Status do Pedido
-                </Typography>
-
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  Para que o cliente possa solicitar trocas, o pedido precisa
-                  estar com status "Entregue".
-                </Alert>
-
-                {/* Botões de ação baseados no status atual */}
-                {selectedOrder.status === "pending" && (
-                  <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-                    <Button
-                      variant="contained"
-                      color="success"
-                      startIcon={<Payment />}
-                      onClick={() =>
-                        handleUpdateOrderStatus(selectedOrder.id, "processing")
-                      }
-                    >
-                      Confirmar Pagamento
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      startIcon={<Cancel />}
-                      onClick={() =>
-                        handleUpdateOrderStatus(selectedOrder.id, "cancelled")
-                      }
-                    >
-                      Cancelar Pedido
-                    </Button>
-                  </Box>
-                )}
-
-                {selectedOrder.status === ("confirmed" as Order["status"]) && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<LocalShipping />}
-                    onClick={() =>
-                      handleUpdateOrderStatus(selectedOrder.id, "processing")
-                    }
-                  >
-                    Iniciar Processamento
-                  </Button>
-                )}
-
-                {selectedOrder.status === "processing" && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    startIcon={<LocalShipping />}
-                    onClick={() =>
-                      handleUpdateOrderStatus(selectedOrder.id, "shipped")
-                    }
-                  >
-                    Marcar como Enviado
-                  </Button>
-                )}
-
-                {selectedOrder.status === "shipped" && (
-                  <Button
-                    variant="contained"
-                    color="success"
-                    startIcon={<CheckCircle />}
-                    onClick={() =>
-                      handleUpdateOrderStatus(selectedOrder.id, "delivered")
-                    }
-                  >
-                    Confirmar Entrega
-                  </Button>
-                )}
-
-                {selectedOrder.status === "delivered" && (
-                  <Alert severity="success">
-                    ✅ Pedido entregue! O cliente já pode solicitar trocas se
-                    necessário.
-                  </Alert>
-                )}
-
-                {selectedOrder.status === "cancelled" && (
-                  <Alert severity="error">❌ Este pedido foi cancelado.</Alert>
-                )}
-              </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDetailsOpen(false)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog de Edição de Status */}
+      <Dialog
+        open={editStatusOpen}
+        onClose={() => setEditStatusOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Alterar Status do Pedido #{selectedOrder?.id.slice(-8).toUpperCase()}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Cliente:{" "}
+              {selectedOrder && getCustomerName(selectedOrder.customerId)}
+            </Typography>
+            <TextField
+              fullWidth
+              select
+              label="Novo Status"
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value as OrderStatus)}
+              sx={{ mt: 2 }}
+            >
+              {Object.entries(statusLabels).map(([status, label]) => (
+                <MenuItem key={status} value={status}>
+                  {label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditStatusOpen(false)}>Cancelar</Button>
+          <Button onClick={handleUpdateStatus} variant="contained">
+            Atualizar
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

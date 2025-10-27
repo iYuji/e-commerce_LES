@@ -1,4 +1,5 @@
 export interface Card {
+  category: any;
   id: string;
   name: string;
   type: string;
