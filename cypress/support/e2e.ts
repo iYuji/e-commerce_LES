@@ -14,4 +14,25 @@
 // ***********************************************************
 
 // Import commands.js using ES2015 syntax:
-import './commands'
+import "./commands";
+
+// Ignorar erros não capturados que não afetam os testes
+Cypress.on("uncaught:exception", (err, runnable) => {
+  // Ignorar erro do electronTRPC (relacionado ao Electron, não afeta testes web)
+  if (err.message.includes("electronTRPC")) {
+    return false;
+  }
+
+  // Ignorar erros de hydration do React (não afetam funcionalidade)
+  if (err.message.includes("Hydration")) {
+    return false;
+  }
+
+  // Ignorar erros de ResizeObserver (comum em testes, não afeta funcionalidade)
+  if (err.message.includes("ResizeObserver")) {
+    return false;
+  }
+
+  // Permitir que outros erros falhem o teste
+  return true;
+});
