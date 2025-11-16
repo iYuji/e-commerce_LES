@@ -25,6 +25,7 @@ import {
 import { useParams, useNavigate } from "react-router-dom";
 import * as Store from "../store/index";
 import { Card as CardType } from "../types";
+import Recommendations from "../components/Recommendations";
 
 const CardDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -381,6 +382,17 @@ const CardDetail: React.FC = () => {
           </Grid>
         </Grid>
       </Box>
+
+      {/* Recomendações de cartas similares */}
+      {card && (
+        <Recommendations
+          cardId={card.id}
+          type="similar"
+          limit={8}
+          title="Cartas Similares"
+          showReasons={true}
+        />
+      )}
 
       <Snackbar
         open={snackbarOpen}

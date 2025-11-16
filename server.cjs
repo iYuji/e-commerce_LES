@@ -310,6 +310,286 @@ app.delete('/api/customers/:id', async (req, res) => {
   }
 });
 
+// ========== CARDS ENDPOINTS ==========
+
+// GET /api/cards - Listar todas as cartas
+app.get('/api/cards', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const { type, rarity, minPrice, maxPrice, inStock } = req.query;
+    
+    let where = {};
+    
+    if (type) where.type = type;
+    if (rarity) where.rarity = rarity;
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) where.price.gte = parseFloat(minPrice);
+      if (maxPrice) where.price.lte = parseFloat(maxPrice);
+    }
+    if (inStock === 'true') where.stock = { gt: 0 };
+    
+    const cards = await prisma.card.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+    });
+    
+    await prisma.$disconnect();
+    
+    res.json(cards);
+  } catch (error) {
+    console.error('Error fetching cards:', error);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+});
+
+// GET /api/cards/:id - Buscar carta por ID
+app.get('/api/cards/:id', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const { id } = req.params;
+    
+    const card = await prisma.card.findUnique({ where: { id } });
+    await prisma.$disconnect();
+    
+    if (!card) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+    
+    res.json(card);
+  } catch (error) {
+    console.error('Error fetching card:', error);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+});
+
+// ========== RECOMMENDATION SERVICE ==========
+const RecommendationService = require('./server/recommendationService.js');
+
+// ========== ORDERS ENDPOINTS ==========
+
+// GET /api/orders - Listar pedidos
+app.get('/api/orders', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const { customerId, status } = req.query;
+    
+    let where = {};
+    if (customerId) where.customerId = customerId;
+    if (status) where.status = status;
+    
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        orderItems: {
+          include: {
+            card: true,
+          },
+        },
+        customer: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    
+    await prisma.$disconnect();
+    
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching orders:', error);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+});
+
+// GET /api/orders/:id - Buscar pedido por ID
+app.get('/api/orders/:id', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const { id } = req.params;
+    
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        orderItems: {
+          include: {
+            card: true,
+          },
+        },
+        customer: true,
+      },
+    });
+    
+    await prisma.$disconnect();
+    
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    res.json(order);
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+});
+
+// ========== RECOMMENDATIONS ENDPOINTS ==========
+
+// GET /api/recommendations - Recomendações personalizadas
+app.get('/api/recommendations', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const { customerId, type = 'hybrid', limit = 10 } = req.query;
+    const limitNum = parseInt(limit);
+    
+    const recommendationService = new RecommendationService(prisma);
+    const recommendations = await recommendationService.getRecommendations(
+      customerId || null,
+      type,
+      limitNum
+    );
+    
+    await prisma.$disconnect();
+    
+    res.json({
+      recommendations,
+      count: recommendations.length,
+      type,
+      customerId: customerId || null
+    });
+  } catch (error) {
+    console.error('Error getting recommendations:', error);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+});
+
+// GET /api/recommendations/popular - Cartas mais populares
+app.get('/api/recommendations/popular', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const { limit = 10 } = req.query;
+    const limitNum = parseInt(limit);
+    
+    const recommendationService = new RecommendationService(prisma);
+    const recommendations = await recommendationService.getPopularRecommendations(limitNum);
+    
+    await prisma.$disconnect();
+    
+    res.json({
+      recommendations,
+      count: recommendations.length
+    });
+  } catch (error) {
+    console.error('Error getting popular recommendations:', error);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+});
+
+// GET /api/recommendations/similar/:cardId - Cartas similares
+app.get('/api/recommendations/similar/:cardId', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const { cardId } = req.params;
+    const { limit = 10 } = req.query;
+    const limitNum = parseInt(limit);
+    
+    const recommendationService = new RecommendationService(prisma);
+    const recommendations = await recommendationService.getContentBasedRecommendations(
+      cardId,
+      limitNum
+    );
+    
+    await prisma.$disconnect();
+    
+    res.json({
+      recommendations,
+      count: recommendations.length,
+      cardId
+    });
+  } catch (error) {
+    console.error('Error getting similar recommendations:', error);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+});
+
+// GET /api/recommendations/customer/:customerId - Recomendações para cliente específico
+app.get('/api/recommendations/customer/:customerId', async (req, res) => {
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    const prisma = new PrismaClient();
+    
+    const { customerId } = req.params;
+    const { type = 'hybrid', limit = 10 } = req.query;
+    const limitNum = parseInt(limit);
+    
+    // Verifica se o cliente existe
+    const customer = await prisma.customer.findUnique({ 
+      where: { id: customerId },
+      select: { id: true }
+    });
+    
+    if (!customer) {
+      await prisma.$disconnect();
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    
+    const recommendationService = new RecommendationService(prisma);
+    const recommendations = await recommendationService.getRecommendations(
+      customerId,
+      type,
+      limitNum
+    );
+    
+    await prisma.$disconnect();
+    
+    res.json({
+      recommendations,
+      count: recommendations.length,
+      type,
+      customerId
+    });
+  } catch (error) {
+    console.error('Error getting customer recommendations:', error);
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message 
+    });
+  }
+});
+
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
@@ -338,6 +618,18 @@ app.listen(PORT, () => {
   console.log('- PUT    /api/customers/:id (Update customer)');
   console.log('- DELETE /api/customers/:id (Delete customer)');
   console.log('- GET    /api/health        (Health check)');
+  console.log('');
+  console.log('📋 Cards & Orders endpoints:');
+  console.log('- GET    /api/cards         (List all cards)');
+  console.log('- GET    /api/cards/:id     (Get card by id)');
+  console.log('- GET    /api/orders        (List orders)');
+  console.log('- GET    /api/orders/:id    (Get order by id)');
+  console.log('');
+  console.log('🤖 AI Recommendation endpoints:');
+  console.log('- GET    /api/recommendations              (Get recommendations)');
+  console.log('- GET    /api/recommendations/popular      (Popular cards)');
+  console.log('- GET    /api/recommendations/similar/:id (Similar cards)');
+  console.log('- GET    /api/recommendations/customer/:id (Customer recommendations)');
   console.log('🎯 Frontend running on http://localhost:3000');
   console.log('💾 Database: SQLite with Prisma ORM');
 });

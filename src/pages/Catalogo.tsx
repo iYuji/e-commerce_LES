@@ -33,6 +33,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import * as Store from "../store/index";
 import { Card as CardType } from "../types";
+import Recommendations from "../components/Recommendations";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -639,6 +640,15 @@ const Catalogo: React.FC = () => {
             Limpar Filtros
           </Button>
         </Box>
+      )}
+
+      {/* Recomendações com IA */}
+      {filteredCards.length > 0 && (
+        <Recommendations
+          type="hybrid"
+          limit={8}
+          title="Recomendadas para Você"
+        />
       )}
 
       <Snackbar
