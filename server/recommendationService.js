@@ -73,7 +73,7 @@ class RecommendationService {
       const allCards = await this.prisma.card.findMany({
         where: {
           id: { not: cardId },
-          stock: { gt: 0 } // Apenas cartas em estoque
+          stock: { gt: 0 } 
         }
       });
 
@@ -112,7 +112,6 @@ class RecommendationService {
    */
   async getCollaborativeRecommendations(customerId, limit = 10) {
     try {
-      // Busca histórico de compras do cliente
       const customerOrders = await this.prisma.order.findMany({
         where: { customerId },
         include: {
@@ -123,11 +122,9 @@ class RecommendationService {
       });
 
       if (customerOrders.length === 0) {
-        // Se não tem histórico, retorna recomendações populares
         return this.getPopularRecommendations(limit);
       }
 
-      // Cria perfil do cliente (cartas que ele comprou)
       const customerCardIds = new Set();
       customerOrders.forEach(order => {
         order.orderItems.forEach(item => {
@@ -135,7 +132,6 @@ class RecommendationService {
         });
       });
 
-      // Busca todos os outros clientes e seus pedidos
       const allCustomers = await this.prisma.customer.findMany({
         where: { id: { not: customerId } },
         include: {
@@ -148,8 +144,6 @@ class RecommendationService {
           }
         }
       });
-
-      // Calcula similaridade com outros clientes
       const similarCustomers = allCustomers.map(otherCustomer => {
         const otherCardIds = new Set();
         otherCustomer.orders.forEach(order => {
@@ -166,13 +160,11 @@ class RecommendationService {
         };
       });
 
-      // Ordena por similaridade e pega os top N
       const topSimilar = similarCustomers
         .filter(c => c.similarity > 0)
         .sort((a, b) => b.similarity - a.similarity)
         .slice(0, 5);
 
-      // Coleta cartas dos clientes similares que o cliente ainda não comprou
       const recommendedCardIds = new Set();
       const cardScores = new Map();
 
@@ -186,7 +178,6 @@ class RecommendationService {
         });
       });
 
-      // Busca as cartas recomendadas
       const recommendedCards = await this.prisma.card.findMany({
         where: {
           id: { in: Array.from(recommendedCardIds) },
@@ -194,7 +185,6 @@ class RecommendationService {
         }
       });
 
-      // Adiciona scores e ordena
       const recommendations = recommendedCards.map(card => ({
         ...card,
         recommendationScore: cardScores.get(card.id) || 0,
@@ -216,14 +206,12 @@ class RecommendationService {
    */
   async getPopularRecommendations(limit = 10) {
     try {
-      // Busca todas as cartas vendidas
       const orderItems = await this.prisma.orderItem.findMany({
         include: {
           card: true
         }
       });
 
-      // Calcula popularidade (quantidade vendida)
       const cardPopularity = new Map();
       orderItems.forEach(item => {
         const current = cardPopularity.get(item.cardId) || 0;

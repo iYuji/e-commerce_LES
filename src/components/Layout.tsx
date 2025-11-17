@@ -101,18 +101,7 @@ export default function Layout({ children }: LayoutProps) {
             <Button color="inherit" onClick={() => navigate("/assistente")}>
               Assistente
             </Button>
-
-            {/* Botão para alternar tema */}
-            <IconButton
-              color="inherit"
-              onClick={handleThemeToggle}
-              title={`Trocar para tema ${
-                currentTheme === "light" ? "escuro" : "claro"
-              }`}
-            >
-              {currentTheme === "light" ? <DarkMode /> : <LightMode />}
-            </IconButton>
-
+            
             <IconButton
               size="large"
               edge="end"
