@@ -279,6 +279,7 @@ export function ensureSeed(): void {
         stock: 25,
         description: "O adorável rato elétrico, mascote dos Pokémon",
         image: "https://images.pokemontcg.io/xy1/42_hires.png",
+        category: undefined,
       },
       {
         id: "2",
@@ -290,6 +291,7 @@ export function ensureSeed(): void {
         description: "O lendário dragão de fogo em sua forma EX",
         image:
           "https://img.mypcards.com/img/2/1865/pokemon_obf_125_197/pokemon_obf_125_197_pt.jpg",
+        category: undefined,
       },
       {
         id: "3",
@@ -300,6 +302,7 @@ export function ensureSeed(): void {
         stock: 8,
         description: "A tartaruga gigante com canhões d'água poderosos",
         image: "https://images.pokemontcg.io/xy1/29_hires.png",
+        category: undefined,
       },
       {
         id: "4",
@@ -310,6 +313,7 @@ export function ensureSeed(): void {
         stock: 10,
         description: "O Pokémon planta com flor venenosa gigante",
         image: "https://images.pokemontcg.io/xy1/1_hires.png",
+        category: undefined,
       },
       {
         id: "5",
@@ -320,6 +324,7 @@ export function ensureSeed(): void {
         stock: 2,
         description: "O Pokémon psíquico mais poderoso em forma EX",
         image: "https://images.pokemontcg.io/xy8/158_hires.png",
+        category: undefined,
       },
       {
         id: "6",
@@ -330,6 +335,7 @@ export function ensureSeed(): void {
         stock: 4,
         description: "Mega Rayquaza, o dragão dos céus em forma mega",
         image: "https://images.pokemontcg.io/xy6/75_hires.png",
+        category: undefined,
       },
       {
         id: "7",
@@ -341,6 +347,7 @@ export function ensureSeed(): void {
         description: "A feroz serpente marinha com fúria devastadora",
         image:
           "https://repositorio.sbrauble.com/arquivos/in/pokemon_bkp/cd/411/47s_130.jpg",
+        category: undefined,
       },
       {
         id: "8",
@@ -351,6 +358,7 @@ export function ensureSeed(): void {
         stock: 11,
         description: "O Pokémon fantasma que se esconde nas sombras",
         image: "https://images.pokemontcg.io/xy4/35_hires.png",
+        category: undefined,
       },
       {
         id: "9",
@@ -362,6 +370,7 @@ export function ensureSeed(): void {
         description: "O mestre da aura com habilidades de combate superiores",
         image:
           "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SM5/SM5_PT-BR_67.png",
+        category: undefined,
       },
       {
         id: "10",
@@ -373,6 +382,7 @@ export function ensureSeed(): void {
         description: "A evolução noturna de Eevee com anéis luminosos",
         image:
           "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SV03/SV03_PT-BR_130.png",
+        category: undefined,
       },
       {
         id: "11",
@@ -384,6 +394,7 @@ export function ensureSeed(): void {
         description: "O gigante dorminhoco que bloqueia estradas",
         image:
           "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SV3PT5/SV3PT5_PT-BR_143.png",
+        category: undefined,
       },
       {
         id: "12",
@@ -394,6 +405,7 @@ export function ensureSeed(): void {
         stock: 7,
         description: "O gentil dragão",
         image: "https://images.pokemontcg.io/xy6/52_hires.png",
+        category: undefined,
       },
       {
         id: "13",
@@ -404,6 +416,7 @@ export function ensureSeed(): void {
         stock: 14,
         description: "O gênio psíquico com QI extremamente alto",
         image: "https://images.pokemontcg.io/xy10/25_hires.png",
+        category: undefined,
       },
       {
         id: "14",
@@ -415,6 +428,7 @@ export function ensureSeed(): void {
         description: "O super lutador com quatro braços musculosos",
         image:
           "https://img.mypcards.com/img/2/1250/pokemon_swshp_swsh053/pokemon_swshp_swsh053_pt.jpg",
+        category: undefined,
       },
       {
         id: "15",
@@ -425,6 +439,7 @@ export function ensureSeed(): void {
         stock: 12,
         description: "O gentil Pokémon aquático em sua forma GX",
         image: "https://images.pokemontcg.io/sm1/35_hires.png",
+        category: undefined,
       },
       {
         id: "16",
@@ -436,6 +451,7 @@ export function ensureSeed(): void {
         description: "O Pokémon com DNA instável e múltiplas evoluções",
         image:
           "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SWSHP/SWSHP_PT-BR_SWSH065.png",
+        category: undefined,
       },
       {
         id: "17",
@@ -447,6 +463,7 @@ export function ensureSeed(): void {
         description: "O pássaro lendário do trovão e da eletricidade",
         image:
           "https://cdn.awsli.com.br/800x800/792/792808/produto/189905268/zapdos-do-rev-rakvvhnui8.png",
+        category: undefined,
       },
       {
         id: "18",
@@ -458,6 +475,7 @@ export function ensureSeed(): void {
         description: "O pássaro lendário do gelo que congela o ar",
         image:
           "https://img.mypcards.com/img/2/2238/pokemon_jtg_032_159/pokemon_jtg_032_159_pt.jpg",
+        category: undefined,
       },
       {
         id: "19",
@@ -469,6 +487,7 @@ export function ensureSeed(): void {
         description: "O pássaro lendário do fogo com chamas eternas",
         image:
           "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SV3PT5/SV3PT5_PT-BR_146.png",
+        category: undefined,
       },
       {
         id: "20",
@@ -480,6 +499,7 @@ export function ensureSeed(): void {
         description: "O Pokémon ancestral raro com DNA de todos os Pokémon",
         image:
           "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SM10/SM10_PT-BR_76.png",
+        category: undefined,
       },
     ];
     writeStore(STORE_KEYS.cards, sampleCards);
