@@ -36,10 +36,9 @@ export interface ApiResponse<T> {
 }
 
 class CustomerApi {
-  // Small helper to make requests with timeout and clearer errors
   private async makeRequest<T>(url: string, options?: RequestInit): Promise<T> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    const timeout = setTimeout(() => controller.abort(), 10000); 
 
     try {
       const response = await fetch(`${API_BASE_URL}${url}`, {
