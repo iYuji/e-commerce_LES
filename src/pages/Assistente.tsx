@@ -82,65 +82,243 @@ const Assistente: React.FC = () => {
     let responseText = "";
     let relatedCards: CardType[] = [];
 
-    // Análise de intenção simples
-    if (lowerMessage.includes("rara") || lowerMessage.includes("legendary")) {
-      const rareCards = cards
-        .filter((card) => card.rarity === "Legendary" || card.rarity === "Epic")
-        .slice(0, 3);
-      relatedCards = rareCards;
-      responseText = `Aqui estão algumas das cartas mais raras da nossa coleção! As cartas Legendary são as mais valiosas e difíceis de encontrar. ${
-        rareCards.length > 0
-          ? "Confira estas opções abaixo:"
-          : "No momento não temos cartas raras em estoque."
-      }`;
-    } else if (lowerMessage.includes("fogo") || lowerMessage.includes("fire")) {
-      const fireCards = cards
-        .filter(
-          (card) =>
-            card.type.toLowerCase().includes("fire") ||
-            card.type.toLowerCase().includes("fogo")
-        )
-        .slice(0, 3);
-      relatedCards = fireCards;
-      responseText = `Encontrei ${fireCards.length} cartas do tipo Fogo para você! Estas cartas são conhecidas por seus ataques poderosos e designs impressionantes.`;
+    // Gatilhos de busca (para nome de carta)
+    const searchTriggers = [
+      "procura",
+      "procurar",
+      "buscar",
+      "encontrar",
+      "mostrar",
+      "mostre",
+      "me mostra",
+      "me mostre",
+      "ver",
+    ];
+    const hasSearchIntent = searchTriggers.some((t) =>
+      lowerMessage.includes(t)
+    );
+
+    // Palavras que indicam que o usuário fala de raridade (não de nome)
+    const rarityWords = [
+      "comum",
+      "comuns",
+      "common",
+      "incomum",
+      "uncommon",
+      "rara",
+      "raras",
+      "rare",
+      "épica",
+      "epica",
+      "epic",
+      "lendária",
+      "lendaria",
+      "legendary",
+    ];
+    const talksAboutRarity = rarityWords.some((w) =>
+      lowerMessage.includes(w)
+    );
+
+    // ================= RARIDADE =================
+    if (
+      lowerMessage.includes("comum") || // pega "comum" e "comuns"
+      lowerMessage.includes("comuns") ||
+      lowerMessage.includes("common")
+    ) {
+      const commonCards = cards
+        .filter((card) => card.rarity.toLowerCase() === "common")
+        .slice(0, 12);
+      relatedCards = commonCards;
+      responseText =
+        commonCards.length > 0
+          ? "Estas são algumas cartas Comuns disponíveis na loja. Ótimas para começar ou completar o deck."
+          : "No momento não temos cartas Comuns em estoque.";
     } else if (
+      lowerMessage.includes("incomum") ||
+      lowerMessage.includes("uncommon")
+    ) {
+      const uncommonCards = cards
+        .filter((card) => card.rarity.toLowerCase() === "uncommon")
+        .slice(0, 12);
+      relatedCards = uncommonCards;
+      responseText =
+        uncommonCards.length > 0
+          ? "Encontrei estas cartas Incomuns para você. Elas costumam ter efeitos interessantes e bom custo-benefício."
+          : "No momento não temos cartas Incomuns em estoque.";
+    } else if (
+      lowerMessage.includes("mais rara") ||
+      lowerMessage.includes("mais raras") ||
+      lowerMessage.includes("raras") ||
+      lowerMessage.includes("rara") ||
+      lowerMessage.includes("rare")
+    ) {
+      const rareCards = cards
+        .filter((card) => {
+          const r = card.rarity.toLowerCase();
+          return (
+            r === "rare" ||
+            r === "super rare" ||
+            r === "ultra rare" ||
+            r === "epic" ||
+            r === "legendary"
+          );
+        })
+        .slice(0, 12);
+      relatedCards = rareCards;
+      responseText =
+        rareCards.length > 0
+          ? "Aqui estão algumas das cartas mais raras da nossa coleção!"
+          : "No momento não temos cartas raras em estoque.";
+    } else if (
+      lowerMessage.includes("épica") ||
+      lowerMessage.includes("epica") ||
+      lowerMessage.includes("epic")
+    ) {
+      const epicCards = cards
+        .filter((card) => card.rarity.toLowerCase() === "epic")
+        .slice(0, 12);
+      relatedCards = epicCards;
+      responseText =
+        epicCards.length > 0
+          ? "Separei algumas cartas Épicas para você. Elas costumam ser bem valorizadas."
+          : "No momento não temos cartas Épicas em estoque.";
+    } else if (
+      lowerMessage.includes("lendária") ||
+      lowerMessage.includes("lendaria") ||
+      lowerMessage.includes("legendary")
+    ) {
+      const legendaryCards = cards
+        .filter((card) => card.rarity.toLowerCase() === "legendary")
+        .slice(0, 12);
+      relatedCards = legendaryCards;
+      responseText =
+        legendaryCards.length > 0
+          ? "Aqui estão algumas das cartas Lendárias mais raras da nossa coleção!"
+          : "No momento não temos cartas Lendárias em estoque.";
+    }
+
+    // =============== TIPOS (Fogo/Água/Elétrico) =================
+    else if (
+      lowerMessage.includes("tipo fogo") ||
+      lowerMessage.includes("tipo fire") ||
+      lowerMessage === "fogo" ||
+      lowerMessage === "fire" ||
+      lowerMessage.includes("cartas de fogo") ||
+      lowerMessage.includes("cartas fire")
+    ) {
+      const fireCards = cards
+        .filter((card) => card.type.toLowerCase().includes("fire"))
+        .slice(0, 12);
+      relatedCards = fireCards;
+      responseText =
+        fireCards.length > 0
+          ? `Encontrei ${fireCards.length} carta(s) do tipo Fogo.`
+          : "No momento não encontrei cartas do tipo Fogo em estoque.";
+    } else if (
+      lowerMessage.includes("tipo água") ||
+      lowerMessage.includes("tipo agua") ||
+      lowerMessage.includes("tipo water") ||
+      lowerMessage === "água" ||
+      lowerMessage === "agua" ||
+      lowerMessage === "water" ||
+      lowerMessage.includes("cartas de água") ||
+      lowerMessage.includes("cartas de agua") ||
+      lowerMessage.includes("cartas water")
+    ) {
+      const waterCards = cards
+        .filter((card) => card.type.toLowerCase().includes("water"))
+        .slice(0, 12);
+      relatedCards = waterCards;
+      responseText =
+        waterCards.length > 0
+          ? `Encontrei ${waterCards.length} carta(s) do tipo Água.`
+          : "No momento não encontrei cartas do tipo Água em estoque.";
+    } else if (
+      lowerMessage.includes("tipo elétrico") ||
+      lowerMessage.includes("tipo eletrico") ||
+      lowerMessage.includes("tipo electric") ||
+      lowerMessage === "elétrico" ||
+      lowerMessage === "eletrico" ||
+      lowerMessage === "electric"
+    ) {
+      const electricCards = cards
+        .filter((card) => card.type.toLowerCase().includes("electric"))
+        .slice(0, 12);
+      relatedCards = electricCards;
+      responseText =
+        electricCards.length > 0
+          ? `Encontrei ${electricCards.length} carta(s) do tipo Elétrico.`
+          : "No momento não encontrei cartas do tipo Elétrico em estoque.";
+    }
+
+    // =============== CARTA MAIS CARA =================
+    else if (
+      lowerMessage.includes("mais cara") ||
+      lowerMessage.includes("mais caro") ||
       lowerMessage.includes("cara") ||
       lowerMessage.includes("preço") ||
+      lowerMessage.includes("preco") ||
       lowerMessage.includes("expensive")
     ) {
       const expensiveCards = [...cards]
         .sort((a, b) => b.price - a.price)
-        .slice(0, 3);
+        .slice(0, 6);
       relatedCards = expensiveCards;
-      responseText = `Estas são as cartas mais valiosas da nossa coleção! O preço reflete a raridade e demanda no mercado.`;
-    } else if (
+      responseText =
+        "Estas são as cartas mais valiosas da nossa coleção! O preço reflete a raridade e demanda no mercado.";
+    }
+
+    // =============== INICIANTES =================
+    else if (
       lowerMessage.includes("iniciante") ||
       lowerMessage.includes("beginner") ||
       lowerMessage.includes("começ")
     ) {
       const beginnerCards = cards
         .filter(
-          (card) => card.rarity === "Common" || card.rarity === "Uncommon"
+          (card) =>
+            card.rarity.toLowerCase() === "common" ||
+            card.rarity.toLowerCase() === "uncommon"
         )
-        .slice(0, 3);
+        .slice(0, 12);
       relatedCards = beginnerCards;
-      responseText = `Para iniciantes, recomendo começar com cartas Common e Uncommon. São mais acessíveis e perfeitas para aprender o jogo!`;
-    } else if (
+      responseText =
+        "Para iniciantes, recomendo começar com cartas Common e Uncommon. São mais acessíveis e perfeitas para aprender o jogo!";
+    }
+
+    // =============== CUPONS =================
+    else if (
+      lowerMessage.includes("cupom") ||
+      lowerMessage.includes("cupons") ||
+      lowerMessage.includes("coupon") ||
+      lowerMessage.includes("cupões") ||
+      lowerMessage.includes("cupoens") || // erro comum
+      lowerMessage.includes("cupom de desconto") ||
+      lowerMessage.includes("cupons de desconto")
+    ) {
+      responseText =
+        "Você pode usar cupons no carrinho de compras. Basta digitar o código no campo **“Cupom de desconto”** e clicar em aplicar.\n\nAlguns exemplos de cupons:\n• **WELCOME10** – 10% de desconto na primeira compra\n• **SAVE5** – R$ 5 de desconto em qualquer pedido\n• **LEGENDARY20** – 20% em cartas lendárias selecionadas\n\nCada cupom pode ter regras específicas (valor mínimo, validade, produtos elegíveis).";
+    }
+
+    // =============== PROMOÇÃO / DESCONTO =================
+    else if (
       lowerMessage.includes("promoção") ||
+      lowerMessage.includes("promocao") ||
       lowerMessage.includes("desconto") ||
       lowerMessage.includes("oferta")
     ) {
       const promotionCards = cards
         .filter((card) => card.price < 50)
-        .slice(0, 3);
+        .slice(0, 12);
       relatedCards = promotionCards;
-      responseText = `Temos várias cartas com preços especiais! Aproveite estas ofertas enquanto o estoque durar.`;
-    } else if (
-      lowerMessage.includes("cupom") ||
-      lowerMessage.includes("coupon")
-    ) {
-      responseText = `Temos vários cupons disponíveis:\n\n• WELCOME10 - 10% de desconto\n• SAVE5 - R$ 5 de desconto\n• LEGENDARY20 - 20% de desconto\n\nDigite o código no carrinho para aplicar o desconto!`;
-    } else if (
+      responseText =
+        promotionCards.length > 0
+          ? "Temos várias cartas com preços especiais! Aproveite estas ofertas enquanto o estoque durar."
+          : "No momento não há cartas em promoção.";
+    }
+
+    // =============== LISTAR TIPOS DISPONÍVEIS =================
+    else if (
       lowerMessage.includes("tipo") ||
       lowerMessage.includes("element")
     ) {
@@ -148,17 +326,78 @@ const Assistente: React.FC = () => {
       responseText = `Temos cartas dos seguintes tipos: ${types.join(
         ", "
       )}. Cada tipo tem suas próprias características e estratégias únicas. Sobre qual tipo você gostaria de saber mais?`;
-    } else if (
+    }
+
+    // =============== ESTOQUE =================
+    else if (
       lowerMessage.includes("estoque") ||
       lowerMessage.includes("stock")
     ) {
       const inStockCards = cards.filter((card) => card.stock > 0);
       responseText = `Temos ${inStockCards.length} cartas diferentes em estoque no momento. Posso ajudá-lo a encontrar algo específico?`;
-    } else {
-      // Resposta genérica com sugestões
-      const randomCards = cards.sort(() => 0.5 - Math.random()).slice(0, 2);
+    }
+
+    // =============== BUSCA POR NOME =================
+    // Só entra aqui se tiver intenção de busca E não estiver falando de raridade
+    else if (hasSearchIntent && !talksAboutRarity) {
+      const words = lowerMessage.split(/\s+/);
+      const stopWords = [
+        "a",
+        "o",
+        "as",
+        "os",
+        "de",
+        "da",
+        "do",
+        "das",
+        "dos",
+        "uma",
+        "um",
+        "carta",
+        "cartas",
+        "pokemon",
+        "pokémon",
+        "procura",
+        "procurar",
+        "buscar",
+        "encontrar",
+        "mostrar",
+        "mostre",
+        "ver",
+        "quero",
+        "gostaria",
+        "me",
+        "para",
+        "tipo",
+      ];
+
+      const keywords = words.filter((w) => !stopWords.includes(w));
+      let searchTerm = keywords.join(" ").trim();
+      if (!searchTerm) {
+        searchTerm = lowerMessage.trim();
+      }
+
+      const matchedCards = cards.filter((card) =>
+        card.name.toLowerCase().includes(searchTerm)
+      );
+
+      relatedCards = matchedCards.slice(0, 6);
+
+      if (matchedCards.length > 0) {
+        responseText = `Encontrei ${matchedCards.length} carta(s) relacionada(s) a "${searchTerm}". Veja algumas opções abaixo:`;
+      } else {
+        responseText = `Não encontrei nenhuma carta com o nome relacionado a "${searchTerm}". Tente usar outro nome ou verificar a ortografia.`;
+      }
+    }
+
+    // =============== RESPOSTA GENÉRICA =================
+    else {
+      const randomCards = [...cards]
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 2);
       relatedCards = randomCards;
-      responseText = `Interessante pergunta! Enquanto isso, que tal dar uma olhada nestas cartas populares? Se precisar de algo específico, posso ajudar com informações sobre raridades, tipos, preços ou recomendações personalizadas.`;
+      responseText =
+        "Interessante pergunta! Enquanto isso, que tal dar uma olhada nestas cartas populares? Se precisar de algo específico, posso ajudar com informações sobre raridades, tipos, preços ou recomendações personalizadas.";
     }
 
     return {
@@ -392,7 +631,9 @@ const Assistente: React.FC = () => {
                             </IconButton>
                             <IconButton
                               size="small"
-                              onClick={() => handleFeedback(message.id, false)}
+                              onClick={() =>
+                                handleFeedback(message.id, false)
+                              }
                               color={
                                 message.helpful === false ? "error" : "default"
                               }
