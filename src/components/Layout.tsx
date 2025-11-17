@@ -135,8 +135,8 @@ export default function Layout({ children }: LayoutProps) {
               <MenuItem onClick={() => navigateAndClose("/admin/estoque")}>
                 Estoque
               </MenuItem>
-              <MenuItem onClick={() => navigateAndClose("/admin/vendas")}>
-                Vendas
+              <MenuItem onClick={() => navigateAndClose("/admin/pedidos")}>
+                Pedidos
               </MenuItem>
               <MenuItem onClick={() => navigateAndClose("/admin/relatorios")}>
                 Relatórios

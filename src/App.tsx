@@ -21,7 +21,7 @@ import Assistente from "./pages/Assistente";
 import AdminCartas from "./pages/admin/AdminCartas";
 import AdminClientes from "./pages/admin/AdminClientes";
 import AdminEstoque from "./pages/admin/AdminEstoque";
-import AdminVendas from "./pages/admin/AdminVendas";
+import Pedidos from "./pages/admin/Pedidos";
 import AdminRelatorios from "./pages/admin/AdminRelatorios";
 import AdminTrocas from "./pages/admin/AdminTrocas";
 
@@ -57,7 +57,7 @@ function App() {
             <Route path="/admin/cartas" element={<AdminCartas />} />
             <Route path="/admin/clientes" element={<AdminClientes />} />
             <Route path="/admin/estoque" element={<AdminEstoque />} />
-            <Route path="/admin/vendas" element={<AdminVendas />} />
+            <Route path="/admin/pedidos" element={<Pedidos />} />
             <Route path="/admin/relatorios" element={<AdminRelatorios />} />
             <Route path="/admin/trocas" element={<AdminTrocas />} />
           </Routes>

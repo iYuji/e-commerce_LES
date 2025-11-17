@@ -17,12 +17,9 @@
     "cypress:run": "cypress run",
     "cypress:run:chrome": "cypress run --browser chrome",
     "cypress:run:firefox": "cypress run --browser firefox",
-    "test:e2e": "cypress run --spec 'cypress/e2e/06-complete-flow.cy.ts'",
     "test:purchase": "cypress run --spec 'cypress/e2e/01-purchase-flow.cy.ts'",
-    "test:payment": "cypress run --spec 'cypress/e2e/02-payment-combinations.cy.ts'",
-    "test:register": "cypress run --spec 'cypress/e2e/03-register-card-address.cy.ts'",
-    "test:exchange": "cypress run --spec 'cypress/e2e/04-exchange-return.cy.ts'",
-    "test:admin": "cypress run --spec 'cypress/e2e/05-admin-management.cy.ts'",
+    "test:exchange": "cypress run --spec 'cypress/e2e/02-exchange-request.cy.ts'",
+    "test:admin-crud": "cypress run --spec 'cypress/e2e/home.cy.js'",
     "test:all": "cypress run"
   },
   "dependencies": {
