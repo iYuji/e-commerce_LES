@@ -36,17 +36,6 @@ export default function Layout({ children }: LayoutProps) {
   );
   const [currentTheme, setCurrentTheme] = useState<"light" | "dark">("dark");
 
-  useEffect(() => {
-    // Define tema inicial como escuro se não houver tema salvo
-    const savedTheme = Store.getTheme();
-    if (!savedTheme || savedTheme === "light") {
-      Store.setTheme("dark");
-      setCurrentTheme("dark");
-    } else {
-      setCurrentTheme(savedTheme);
-    }
-  }, []);
-
   const handleAdminMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
     setAdminMenuAnchor(event.currentTarget);
   };
@@ -65,13 +54,6 @@ export default function Layout({ children }: LayoutProps) {
     handleMenuClose();
   };
 
-  const handleThemeToggle = () => {
-    // Alterna diretamente o tema
-    const newTheme = currentTheme === "light" ? "dark" : "light";
-
-    Store.setTheme(newTheme);
-    setCurrentTheme(newTheme);
-  };
   return (
     <ThemeProvider theme={getAppTheme(currentTheme)}>
       <CssBaseline />
