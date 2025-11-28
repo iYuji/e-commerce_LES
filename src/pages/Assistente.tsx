@@ -30,6 +30,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import * as Store from "../store/index";
 import { Card as CardType } from "../types";
+import { chatApi } from "../api/chatApi";
 
 interface Message {
   id: string;
@@ -77,7 +78,9 @@ const Assistente: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const simulateAIResponse = (userMessage: string): Message => {
+  // Função antiga removida - agora usamos Gemini AI via API
+  // Mantida apenas para referência, mas não é mais usada
+  const _simulateAIResponse_DEPRECATED = (userMessage: string): Message => {
     const lowerMessage = userMessage.toLowerCase();
     let responseText = "";
     let relatedCards: CardType[] = [];
@@ -420,15 +423,128 @@ const Assistente: React.FC = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const messageToSend = inputText;
     setInputText("");
     setIsTyping(true);
 
-    // Simular delay de digitação
-    setTimeout(() => {
-      const aiResponse = simulateAIResponse(inputText);
+    try {
+      // Busca customerId da sessão se disponível
+      const session = Store.getSession();
+      const customerId = session?.userId || undefined;
+
+      // Chama a API de chat com Gemini
+      const response = await chatApi.sendMessage(messageToSend, customerId);
+
+      // Converte ChatCard para CardType
+      const cards: CardType[] = response.cards.map(card => ({
+        id: card.id,
+        name: card.name,
+        type: card.type,
+        rarity: card.rarity,
+        price: card.price,
+        stock: card.stock,
+        image: card.image,
+        description: card.description,
+        category: null, // Campo obrigatório do tipo Card
+      }));
+
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: response.text,
+        sender: "assistant",
+        timestamp: new Date(),
+        cards: cards,
+      };
+
       setMessages((prev) => [...prev, aiResponse]);
+    } catch (error) {
+      console.error('❌ Erro ao processar mensagem com Gemini:', error);
+      console.error('Detalhes do erro:', error);
+      
+      // Fallback inteligente que detecta raridades, tipos e nomes
+      const lowerMessage = messageToSend.toLowerCase();
+      let matchedCards: CardType[] = [];
+      let responseText = '';
+
+      // Mapeamento de raridades
+      const rarityMap: { [key: string]: { words: string[], name: string } } = {
+        'common': { words: ['comum', 'common', 'comuns'], name: 'Comuns' },
+        'uncommon': { words: ['incomum', 'uncommon', 'incomuns'], name: 'Incomuns' },
+        'rare': { words: ['rara', 'rare', 'raras', 'raros'], name: 'Raras' },
+        'legendary': { words: ['lendária', 'lendaria', 'legendary', 'lendárias', 'lendarias', 'lendário', 'lendarios'], name: 'Lendárias' },
+        'mythic': { words: ['mítica', 'mitica', 'mythic', 'míticas', 'miticas'], name: 'Míticas' },
+        'epic': { words: ['épica', 'epica', 'epic', 'épicas', 'epicas'], name: 'Épicas' }
+      };
+
+      // Verifica se é pergunta sobre raridade
+      let foundRarity: string | null = null;
+      for (const [rarity, data] of Object.entries(rarityMap)) {
+        if (data.words.some(word => lowerMessage.includes(word))) {
+          foundRarity = rarity;
+          matchedCards = cards.filter(card => 
+            card.rarity.toLowerCase() === rarity
+          ).slice(0, 12);
+          responseText = matchedCards.length > 0
+            ? `Encontrei ${matchedCards.length} carta(s) ${data.name} disponíveis na loja! Estas são algumas opções:`
+            : `No momento não temos cartas ${data.name} em estoque.`;
+          break;
+        }
+      }
+
+      // Se não encontrou por raridade, tenta por tipo
+      if (!foundRarity) {
+        const typeMap: { [key: string]: { words: string[], name: string } } = {
+          'fire': { words: ['fogo', 'fire'], name: 'Fogo' },
+          'water': { words: ['água', 'agua', 'water'], name: 'Água' },
+          'electric': { words: ['elétrico', 'eletrico', 'electric'], name: 'Elétrico' },
+          'grass': { words: ['grama', 'grass', 'planta'], name: 'Grama' },
+        };
+
+        for (const [type, data] of Object.entries(typeMap)) {
+          if (data.words.some(word => lowerMessage.includes(word))) {
+            matchedCards = cards.filter(card => 
+              card.type.toLowerCase().includes(type)
+            ).slice(0, 12);
+            responseText = matchedCards.length > 0
+              ? `Encontrei ${matchedCards.length} carta(s) do tipo ${data.name}. Veja algumas opções:`
+              : `No momento não encontrei cartas do tipo ${data.name} em estoque.`;
+            break;
+          }
+        }
+      }
+
+      // Se ainda não encontrou, tenta buscar por nome
+      if (matchedCards.length === 0) {
+        matchedCards = cards.filter(card => 
+          card.name.toLowerCase().includes(lowerMessage.trim())
+        ).slice(0, 6);
+        
+        if (matchedCards.length > 0) {
+          responseText = `Encontrei ${matchedCards.length} carta(s) relacionada(s) a "${messageToSend}". Veja algumas opções abaixo:`;
+        }
+      }
+
+      // Se ainda não encontrou nada, mensagem genérica
+      if (matchedCards.length === 0 && !responseText) {
+        const randomCards = [...cards]
+          .sort(() => 0.5 - Math.random())
+          .slice(0, 2);
+        matchedCards = randomCards;
+        responseText = "Desculpe, não consegui processar sua mensagem no momento. Enquanto isso, que tal dar uma olhada nestas cartas populares? Se precisar de algo específico, posso ajudar com informações sobre raridades, tipos, preços ou recomendações personalizadas.";
+      }
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: responseText,
+        sender: "assistant",
+        timestamp: new Date(),
+        cards: matchedCards,
+      };
+      
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1000 + Math.random() * 1000);
+    }
   };
 
   const handleSuggestedQuestion = (question: string) => {

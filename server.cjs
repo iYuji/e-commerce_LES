@@ -374,7 +374,7 @@ app.get('/api/cards/:id', async (req, res) => {
 });
 
 // ========== RECOMMENDATION SERVICE ==========
-const RecommendationService = require('./server/recommendationService.js');
+const RecommendationService = require('./server/recommendationService.cjs');
 
 // ========== ORDERS ENDPOINTS ==========
 
@@ -590,6 +590,64 @@ app.get('/api/recommendations/customer/:customerId', async (req, res) => {
   }
 });
 
+// ========== CHAT SERVICE ==========
+const ChatService = require('./server/chatService.cjs');
+
+// POST /api/chat - Processa mensagem do chat com IA
+app.post('/api/chat', async (req, res) => {
+  let prisma;
+  try {
+    const { PrismaClient } = require('@prisma/client');
+    prisma = new PrismaClient();
+    
+    const { message, customerId } = req.body;
+    
+    console.log('📨 Recebida requisição de chat:', { 
+      message: message?.substring(0, 50), 
+      customerId: customerId || 'null',
+      timestamp: new Date().toISOString()
+    });
+    
+    if (!message || typeof message !== 'string' || !message.trim()) {
+      await prisma.$disconnect();
+      return res.status(400).json({ 
+        error: 'Bad request', 
+        message: 'Message is required' 
+      });
+    }
+    
+    const chatService = new ChatService(prisma);
+    console.log('🤖 Chamando processMessage do ChatService...');
+    const response = await chatService.processMessage(message.trim(), customerId || null);
+    
+    console.log('✅ Resposta gerada:', {
+      textLength: response.text?.length || 0,
+      cardsCount: response.cards?.length || 0,
+      textPreview: response.text?.substring(0, 100) || 'N/A'
+    });
+    
+    await prisma.$disconnect();
+    
+    res.json({
+      text: response.text,
+      cards: response.cards || []
+    });
+  } catch (error) {
+    console.error('❌ Error processing chat message:', error);
+    console.error('Stack:', error.stack);
+    
+    if (prisma) {
+      await prisma.$disconnect().catch(() => {});
+    }
+    
+    res.status(500).json({ 
+      error: 'Internal server error', 
+      message: error.message,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+});
+
 // Error handler
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
@@ -630,6 +688,9 @@ app.listen(PORT, () => {
   console.log('- GET    /api/recommendations/popular      (Popular cards)');
   console.log('- GET    /api/recommendations/similar/:id (Similar cards)');
   console.log('- GET    /api/recommendations/customer/:id (Customer recommendations)');
+  console.log('');
+  console.log('💬 AI Chat endpoints:');
+  console.log('- POST   /api/chat                        (Process chat message with AI)');
   console.log('🎯 Frontend running on http://localhost:3000');
   console.log('💾 Database: SQLite with Prisma ORM');
 });

@@ -49,10 +49,13 @@ class RecommendationApi {
 
   /**
    * Busca recomendações personalizadas
+   * @param customerId - ID do cliente (opcional)
+   * @param type - Tipo de recomendação: 'hybrid' (usa Gemini AI), 'gemini' (força Gemini), 'collaborative', 'history', 'popular'
+   * @param limit - Número máximo de recomendações
    */
   async getRecommendations(
     customerId?: string,
-    type: 'hybrid' | 'collaborative' | 'history' | 'popular' = 'hybrid',
+    type: 'hybrid' | 'gemini' | 'collaborative' | 'history' | 'popular' = 'hybrid',
     limit: number = 10
   ): Promise<RecommendationResponse> {
     const params = new URLSearchParams();
@@ -88,10 +91,13 @@ class RecommendationApi {
 
   /**
    * Busca recomendações para um cliente específico
+   * @param customerId - ID do cliente
+   * @param type - Tipo de recomendação: 'hybrid' (usa Gemini AI), 'gemini' (força Gemini), 'collaborative', 'history', 'popular'
+   * @param limit - Número máximo de recomendações
    */
   async getCustomerRecommendations(
     customerId: string,
-    type: 'hybrid' | 'collaborative' | 'history' | 'popular' = 'hybrid',
+    type: 'hybrid' | 'gemini' | 'collaborative' | 'history' | 'popular' = 'hybrid',
     limit: number = 10
   ): Promise<RecommendationResponse> {
     const params = new URLSearchParams();

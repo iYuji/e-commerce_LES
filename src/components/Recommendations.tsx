@@ -27,7 +27,7 @@ import * as Store from '../store/index';
 interface RecommendationsProps {
   customerId?: string;
   cardId?: string;
-  type?: 'hybrid' | 'collaborative' | 'history' | 'popular' | 'similar';
+  type?: 'hybrid' | 'gemini' | 'collaborative' | 'history' | 'popular' | 'similar';
   limit?: number;
   title?: string;
   showReasons?: boolean;
