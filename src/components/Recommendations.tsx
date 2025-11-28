@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import {
   AutoAwesome,
-  TrendingUp,
   Refresh,
   ShoppingCart,
 } from '@mui/icons-material';
