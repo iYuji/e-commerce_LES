@@ -42,8 +42,6 @@ import { StockService } from "../services/stockService";
 // CONSTANTES E CONFIGURAÇÕES
 // ============================================================
 
-// Define os três passos do processo de checkout
-// Isso ajuda o usuário a saber em que etapa ele está
 const steps = [
   "Endereço de Entrega",
   "Forma de Pagamento",
@@ -54,8 +52,6 @@ const steps = [
 // INTERFACES E TIPOS
 // ============================================================
 
-// Define a estrutura de um endereço temporário (antes de ser salvo)
-// Usamos isso para validar os dados antes de criar um endereço definitivo
 interface Address {
   firstName: string;
   lastName: string;
@@ -66,8 +62,6 @@ interface Address {
   phone: string;
 }
 
-// Define a estrutura das informações de pagamento
-// O campo 'method' determina quais outros campos são obrigatórios
 interface PaymentInfo {
   method: "credit" | "debit" | "pix" | "boleto";
   cardNumber?: string;
@@ -84,65 +78,28 @@ interface PaymentInfo {
 const Checkout: React.FC = () => {
   const navigate = useNavigate();
 
-  // --------------------------------------------------------
-  // ESTADOS PRINCIPAIS DO COMPONENTE
-  // --------------------------------------------------------
-
-  // Controla qual etapa do checkout está ativa (0, 1 ou 2)
+  // Estados principais
   const [activeStep, setActiveStep] = useState(0);
-
-  // Armazena os itens do carrinho que vieram da página anterior
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-
-  // Armazena os cupons que o usuário aplicou no carrinho
   const [appliedCoupons, setAppliedCoupons] = useState<Coupon[]>([]);
-
-  // Indica se está processando o pedido (mostra loading no botão)
   const [loading, setLoading] = useState(false);
-
-  // Indica se o pedido foi finalizado com sucesso
   const [orderComplete, setOrderComplete] = useState(false);
-
-  // Armazena o ID do pedido criado (para mostrar na tela de sucesso)
   const [orderId, setOrderId] = useState("");
 
-  // --------------------------------------------------------
-  // ESTADOS PARA GERENCIAMENTO DE ENDEREÇOS
-  // --------------------------------------------------------
-
-  // Lista de endereços que o usuário já salvou anteriormente
+  // Gerenciamento de endereços
   const [savedAddresses, setSavedAddresses] = useState<AddressType[]>([]);
-
-  // Controla se o usuário quer usar um endereço novo ou um já salvo
   const [useNewAddress, setUseNewAddress] = useState(true);
-
-  // ID do endereço selecionado (quando usa endereço salvo)
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
 
-  // --------------------------------------------------------
-  // ESTADOS PARA GERENCIAMENTO DE CARTÕES
-  // --------------------------------------------------------
-
-  // Lista de cartões que o usuário já salvou anteriormente
+  // Gerenciamento de cartões
   const [savedCards, setSavedCards] = useState<CreditCardType[]>([]);
-
-  // Controla se o usuário quer usar um cartão novo ou um já salvo
   const [useNewCard, setUseNewCard] = useState(true);
-
-  // Array que mapeia quanto será cobrado em cada cartão selecionado
-  // Exemplo: [{ cardId: "abc123", amount: 50.00 }, { cardId: "def456", amount: 30.00 }]
   const [selectedCards, setSelectedCards] = useState<
     { cardId: string; amount: number }[]
   >([]);
-
-  // Valor que será cobrado no cartão novo (quando não usa cartões salvos)
   const [newCardAmount, setNewCardAmount] = useState<number>(0);
 
-  // --------------------------------------------------------
-  // ESTADOS PARA DADOS DO FORMULÁRIO
-  // --------------------------------------------------------
-
-  // Dados do novo endereço que o usuário está cadastrando
+  // Estados para dados do formulário
   const [address, setAddress] = useState<Address>({
     firstName: "",
     lastName: "",
@@ -153,36 +110,27 @@ const Checkout: React.FC = () => {
     phone: "",
   });
 
-  // Dados do pagamento (cartão, PIX ou boleto)
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
     method: "credit",
   });
 
-  // Opção de entrega selecionada (standard, express ou premium)
-  // Isso afeta o custo do frete e o prazo de entrega
   const [shippingOption, setShippingOption] = useState("standard");
 
-  // --------------------------------------------------------
-  // ESTADOS PARA VALIDAÇÃO E ERROS
-  // --------------------------------------------------------
+  // NOVO: Estado para controlar se deve salvar o novo cartão
+  const [saveNewCard, setSaveNewCard] = useState(false);
 
-  // Armazena os erros de validação do formulário de endereço
-  // Exemplo: { firstName: "Nome é obrigatório", email: "Email inválido" }
+  // Validação e erros
   const [addressErrors, setAddressErrors] = useState<Partial<Address>>({});
-
-  // Armazena os erros de validação do formulário de pagamento
   const [paymentErrors, setPaymentErrors] = useState<Partial<PaymentInfo>>({});
 
   // ============================================================
-  // EFEITO INICIAL - CARREGA DADOS AO MONTAR O COMPONENTE
+  // EFEITO INICIAL
   // ============================================================
 
   useEffect(() => {
-    // Carrega o carrinho do localStorage
     const cart = Store.getCart();
     setCartItems(cart);
 
-    // Carrega os cupons que foram aplicados na página do carrinho
     const savedCoupons = localStorage.getItem("appliedCoupons");
     if (savedCoupons) {
       try {
@@ -192,30 +140,22 @@ const Checkout: React.FC = () => {
       }
     }
 
-    // Carrega os dados do usuário logado
     const session = Store.getSession();
     if (session?.user?.id) {
-      // Busca os endereços salvos deste usuário
       const addresses = Store.getAddresses(session.user.id);
       setSavedAddresses(addresses);
 
-      // Se existe um endereço marcado como padrão, seleciona ele automaticamente
       const defaultAddress = addresses.find((a) => a.isDefault);
       if (defaultAddress) {
         setSelectedAddressId(defaultAddress.id);
         setUseNewAddress(false);
       }
 
-      // Busca os cartões salvos deste usuário
       const cards = Store.getCreditCards(session.user.id);
       setSavedCards(cards);
-
-      // Inicializa o valor do novo cartão (será calculado dinamicamente)
       setNewCardAmount(0);
     }
 
-    // Se o carrinho está vazio, redireciona para o catálogo
-    // Não faz sentido estar no checkout sem itens para comprar
     if (cart.length === 0) {
       navigate("/catalogo");
     }
@@ -225,12 +165,7 @@ const Checkout: React.FC = () => {
   // FUNÇÕES DE VALIDAÇÃO
   // ============================================================
 
-  /**
-   * Valida os dados do endereço antes de prosseguir para o próximo passo
-   * Retorna true se tudo está válido, false se há erros
-   */
   const validateAddress = (): boolean => {
-    // Se está usando endereço salvo, só precisa verificar se um foi selecionado
     if (!useNewAddress) {
       if (!selectedAddressId) {
         return false;
@@ -238,10 +173,8 @@ const Checkout: React.FC = () => {
       return true;
     }
 
-    // Validação de novo endereço
     const errors: Partial<Address> = {};
 
-    // Verifica cada campo obrigatório
     if (!address.firstName.trim()) errors.firstName = "Nome é obrigatório";
     if (!address.lastName.trim()) errors.lastName = "Sobrenome é obrigatório";
     if (!address.address.trim()) errors.address = "Endereço é obrigatório";
@@ -250,27 +183,18 @@ const Checkout: React.FC = () => {
     if (!address.zipCode.trim()) errors.zipCode = "CEP é obrigatório";
     if (!address.phone.trim()) errors.phone = "Telefone é obrigatório";
 
-    // Validações de formato - CEP brasileiro (00000-000)
     if (address.zipCode && !/^\d{5}-?\d{3}$/.test(address.zipCode)) {
       errors.zipCode = "CEP deve ter o formato 00000-000";
     }
 
-    // Validação de telefone brasileiro ((00) 00000-0000)
     if (address.phone && !/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(address.phone)) {
       errors.phone = "Telefone deve ter o formato (00) 00000-0000";
     }
 
-    // Atualiza o estado com os erros encontrados
     setAddressErrors(errors);
-
-    // Retorna true apenas se não houver erros
     return Object.keys(errors).length === 0;
   };
 
-  /**
-   * Valida os dados de pagamento antes de finalizar o pedido
-   * As validações mudam dependendo da forma de pagamento escolhida
-   */
   const validatePayment = (): boolean => {
     const errors: Partial<PaymentInfo> = {};
 
@@ -279,6 +203,7 @@ const Checkout: React.FC = () => {
       // Se está usando cartões salvos
       if (!useNewCard) {
         const total = calculateTotal();
+        const discountAmount = calculateDiscountAmount();
         const totalAllocated = selectedCards.reduce(
           (sum, sc) => sum + sc.amount,
           0
@@ -291,7 +216,6 @@ const Checkout: React.FC = () => {
         }
 
         // O valor total dos cartões deve ser igual ao total do pedido
-        // Usamos uma margem de 0.01 para evitar problemas com ponto flutuante
         if (Math.abs(totalAllocated - total) > 0.01) {
           alert(
             `O valor total alocado (R$ ${totalAllocated.toFixed(
@@ -299,6 +223,23 @@ const Checkout: React.FC = () => {
             )}) deve ser igual ao total do pedido (R$ ${total.toFixed(2)})`
           );
           return false;
+        }
+
+        // RN0034: Validar valor mínimo de R$ 10,00 por cartão
+        // RN0035: Exceto quando usa cupons, aí pode ser menor
+        const minimumPerCard = discountAmount > 0 ? 0 : 10.0;
+        
+        for (const card of selectedCards) {
+          if (card.amount < minimumPerCard) {
+            if (discountAmount > 0) {
+              // Com cupons, qualquer valor é aceito
+              continue;
+            }
+            alert(
+              `O valor mínimo para cada cartão é R$ 10,00. Cartão com R$ ${card.amount.toFixed(2)} não é permitido.`
+            );
+            return false;
+          }
         }
 
         return true;
@@ -313,7 +254,7 @@ const Checkout: React.FC = () => {
         errors.expiryDate = "Data de validade é obrigatória";
       if (!paymentInfo.cvv?.trim()) errors.cvv = "CVV é obrigatório";
 
-      // Validação de formato do número do cartão (0000 0000 0000 0000)
+      // Validação de formato do número do cartão
       if (
         paymentInfo.cardNumber &&
         !/^\d{4}\s\d{4}\s\d{4}\s\d{4}$/.test(paymentInfo.cardNumber)
@@ -321,7 +262,7 @@ const Checkout: React.FC = () => {
         errors.cardNumber = "Cartão deve ter o formato 0000 0000 0000 0000";
       }
 
-      // Validação de data de validade (MM/AA)
+      // Validação de data de validade
       if (
         paymentInfo.expiryDate &&
         !/^\d{2}\/\d{2}$/.test(paymentInfo.expiryDate)
@@ -329,17 +270,17 @@ const Checkout: React.FC = () => {
         errors.expiryDate = "Data deve ter o formato MM/AA";
       }
 
-      // Validação do CVV (3 ou 4 dígitos)
+      // Validação do CVV
       if (paymentInfo.cvv && !/^\d{3,4}$/.test(paymentInfo.cvv)) {
         errors.cvv = "CVV deve ter 3 ou 4 dígitos";
       }
     }
 
-    // Validações para PIX ou Boleto (precisam apenas do CPF)
+    // Validações para PIX ou Boleto
     if (paymentInfo.method === "pix" || paymentInfo.method === "boleto") {
       if (!paymentInfo.cpf?.trim()) errors.cpf = "CPF é obrigatório";
 
-      // Validação de formato do CPF (000.000.000-00)
+      // Validação de formato do CPF
       if (
         paymentInfo.cpf &&
         !/^\d{3}\.\d{3}\.\d{3}-\d{2}$/.test(paymentInfo.cpf)
@@ -356,10 +297,6 @@ const Checkout: React.FC = () => {
   // FUNÇÕES DE CÁLCULO DE VALORES
   // ============================================================
 
-  /**
-   * Calcula o subtotal do carrinho (soma dos preços x quantidades)
-   * Este é o valor antes de aplicar descontos e frete
-   */
   const calculateSubtotal = () => {
     return cartItems.reduce(
       (total, item) => total + item.card.price * item.quantity,
@@ -367,26 +304,15 @@ const Checkout: React.FC = () => {
     );
   };
 
-  /**
-   * Calcula o valor total de desconto dos cupons aplicados
-   * Considera todos os cupons ativos no carrinho
-   */
   const calculateDiscountAmount = () => {
     if (appliedCoupons.length === 0) return 0;
     const subtotal = calculateSubtotal();
 
-    // Soma o desconto de todos os cupons
     return appliedCoupons.reduce((total, coupon) => {
       return total + CouponService.calculateDiscount(coupon, subtotal);
     }, 0);
   };
 
-  /**
-   * Retorna o custo do frete baseado na opção escolhida
-   * Standard: R$ 8,50 (3-5 dias)
-   * Express: R$ 15,00 (1-2 dias)
-   * Premium: R$ 25,00 (24 horas)
-   */
   const getShippingCost = () => {
     switch (shippingOption) {
       case "express":
@@ -398,10 +324,6 @@ const Checkout: React.FC = () => {
     }
   };
 
-  /**
-   * Calcula o valor total do pedido
-   * Fórmula: Subtotal - Descontos + Frete
-   */
   const calculateTotal = () => {
     return calculateSubtotal() - calculateDiscountAmount() + getShippingCost();
   };
@@ -410,25 +332,12 @@ const Checkout: React.FC = () => {
   // FUNÇÕES DE NAVEGAÇÃO ENTRE ETAPAS
   // ============================================================
 
-  /**
-   * Avança para o próximo passo do checkout
-   * Valida os dados antes de permitir o avanço
-   */
   const handleNext = () => {
-    // Valida o endereço no primeiro passo
     if (activeStep === 0 && !validateAddress()) return;
-
-    // Valida o pagamento no segundo passo
     if (activeStep === 1 && !validatePayment()) return;
-
-    // Avança para a próxima etapa
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
   };
 
-  /**
-   * Volta para o passo anterior
-   * Não há validação ao voltar, apenas navegação
-   */
   const handleBack = () => {
     setActiveStep((prevActiveStep) => prevActiveStep - 1);
   };
@@ -437,18 +346,7 @@ const Checkout: React.FC = () => {
   // FUNÇÃO PRINCIPAL - FINALIZAR PEDIDO
   // ============================================================
 
-  /**
-   * Esta é a função mais importante do checkout!
-   * Ela processa o pedido completo e salva no sistema
-   *
-   * MUDANÇAS IMPORTANTES PARA CORRIGIR O BUG:
-   * 1. Valida autenticação ANTES de processar
-   * 2. Usa customerId real da sessão
-   * 3. Dispara evento orders:updated para atualizar outros componentes
-   */
   const handlePlaceOrder = async () => {
-    // PROTEÇÃO 1: Prevenir múltiplas chamadas (duplo clique)
-    // Se já está processando, ignora novos cliques
     if (loading) {
       console.log("⚠️ Já está processando, ignorando clique duplo");
       return;
@@ -458,8 +356,6 @@ const Checkout: React.FC = () => {
     console.log("🛒 Iniciando processo de pedido...");
 
     try {
-      // PROTEÇÃO 2: Validar autenticação ANTES de tudo
-      // Esta é uma das principais correções que fizemos!
       const session = Store.getSession();
       const customerId = session?.user?.id;
 
@@ -472,10 +368,8 @@ const Checkout: React.FC = () => {
 
       console.log("👤 Customer ID:", customerId);
 
-      // Simula o processamento do pagamento (em produção, aqui você chamaria uma API)
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
-      // Converte os cupons aplicados para o formato que será salvo no pedido
       const appliedCouponsForOrder: AppliedCoupon[] = appliedCoupons.map(
         (coupon) => ({
           couponId: coupon.id,
@@ -489,17 +383,14 @@ const Checkout: React.FC = () => {
         })
       );
 
-      // Determina qual endereço usar (novo ou salvo)
       let shippingAddress: AddressType;
       if (useNewAddress) {
-        // Cria um novo endereço com os dados do formulário
         shippingAddress = {
           id: `addr_${Date.now()}`,
           customerId,
           ...address,
         };
       } else {
-        // Busca o endereço selecionado da lista de salvos
         const savedAddr = savedAddresses.find(
           (a) => a.id === selectedAddressId
         );
@@ -511,7 +402,6 @@ const Checkout: React.FC = () => {
         shippingAddress = savedAddr;
       }
 
-      // Prepara as informações de pagamento
       const paymentInfoForOrder: any = {
         method: paymentInfo.method,
         totalAmount: calculateTotal(),
@@ -520,15 +410,33 @@ const Checkout: React.FC = () => {
       // Se for cartão, adiciona os dados dos cartões
       if (paymentInfo.method === "credit" || paymentInfo.method === "debit") {
         if (useNewCard) {
-          // Novo cartão: salva apenas os últimos 4 dígitos
+          // Novo cartão: salva apenas os últimos 4 dígitos no pedido
+          const last4Digits = paymentInfo.cardNumber?.slice(-4) || "";
+          
           paymentInfoForOrder.creditCards = [
             {
-              cardNumber: paymentInfo.cardNumber?.slice(-4),
+              cardNumber: last4Digits,
               cardName: paymentInfo.cardName,
               expiryDate: paymentInfo.expiryDate,
               amount: calculateTotal(),
             },
           ];
+
+          // RF0036: Se o usuário escolheu salvar o cartão, adiciona ao perfil
+          if (saveNewCard && paymentInfo.cardNumber) {
+            const newCard: CreditCardType = {
+              id: `card_${Date.now()}`,
+              customerId,
+              cardNumber: last4Digits,
+              cardName: paymentInfo.cardName || "",
+              expiryDate: paymentInfo.expiryDate || "",
+              brand: detectCardBrand(paymentInfo.cardNumber),
+              isDefault: savedCards.length === 0,
+            };
+            
+            Store.addCreditCard(newCard);
+            console.log("✅ Novo cartão salvo no perfil:", newCard);
+          }
         } else {
           // Cartões salvos: mapeia cada cartão selecionado com seu valor
           paymentInfoForOrder.creditCards = selectedCards.map((sc) => {
@@ -544,9 +452,8 @@ const Checkout: React.FC = () => {
         }
       }
 
-      // Cria o objeto do pedido com todos os dados
       const order: Omit<Order, "id"> = {
-        customerId, // CORREÇÃO IMPORTANTE: Usa o customerId validado
+        customerId,
         items: cartItems,
         subtotal: calculateSubtotal(),
         discountAmount: calculateDiscountAmount(),
@@ -571,35 +478,27 @@ const Checkout: React.FC = () => {
         ).toISOString(),
       };
 
-      // Salva o pedido no sistema
       const newOrderId = Store.addOrder(order);
 
-      // LOGS PARA DEBUG: Ajudam a rastrear problemas
       console.log("✅ Pedido criado com ID:", newOrderId);
       console.log("📦 Pedido completo:", { ...order, id: newOrderId });
 
-      // Limpa o carrinho e os cupons aplicados
       Store.clearCart();
       localStorage.removeItem("appliedCoupons");
 
-      // CORREÇÃO CRÍTICA: Dispara evento para atualizar outros componentes
-      // Sem isso, AdminVendas e MeusPedidos não sabem que há um novo pedido!
       console.log("📢 Disparando evento orders:updated...");
       window.dispatchEvent(new CustomEvent("orders:updated"));
 
-      // Pequeno delay para garantir que o evento seja processado
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       console.log("🎉 Pedido concluído:", newOrderId);
 
-      // Mostra a tela de sucesso
       setOrderId(newOrderId);
       setOrderComplete(true);
     } catch (error) {
       console.error("❌ Erro ao processar pedido:", error);
       alert("Erro ao processar pedido. Tente novamente.");
     } finally {
-      // Sempre desativa o loading, mesmo se houver erro
       setLoading(false);
     }
   };
@@ -608,26 +507,14 @@ const Checkout: React.FC = () => {
   // FUNÇÕES DE FORMATAÇÃO
   // ============================================================
 
-  /**
-   * Formata o número do cartão enquanto o usuário digita
-   * Adiciona espaços a cada 4 dígitos para melhor legibilidade
-   * Exemplo: "1234567812345678" vira "1234 5678 1234 5678"
-   */
   const formatCardNumber = (value: string) => {
-    // Remove espaços e caracteres não numéricos
     const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "");
-
-    // Pega apenas os primeiros 16 dígitos
     const matches = v.match(/\d{4,16}/g);
     const match = (matches && matches[0]) || "";
-
-    // Divide em grupos de 4
     const parts = [];
     for (let i = 0, len = match.length; i < len; i += 4) {
       parts.push(match.substring(i, i + 4));
     }
-
-    // Junta com espaços
     if (parts.length) {
       return parts.join(" ");
     } else {
@@ -636,30 +523,35 @@ const Checkout: React.FC = () => {
   };
 
   /**
-   * Formata o CPF enquanto o usuário digita
-   * Adiciona pontos e hífen no padrão brasileiro
-   * Exemplo: "12345678901" vira "123.456.789-01"
+   * Detecta a bandeira do cartão baseado no número
    */
+  const detectCardBrand = (cardNumber: string): string => {
+    const number = cardNumber.replace(/\s/g, "");
+    
+    if (/^4/.test(number)) return "Visa";
+    if (/^5[1-5]/.test(number)) return "Mastercard";
+    if (/^3[47]/.test(number)) return "American Express";
+    if (/^6(?:011|5)/.test(number)) return "Discover";
+    if (/^35/.test(number)) return "JCB";
+    if (/^(?:2131|1800|35)/.test(number)) return "JCB";
+    if (/^3(?:0[0-5]|[68])/.test(number)) return "Diners Club";
+    if (/^(5018|5020|5038|6304|6759|676[1-3])/.test(number)) return "Maestro";
+    if (/^(606282|3841)/.test(number)) return "Hipercard";
+    if (/^63[7-9]/.test(number)) return "Elo";
+    
+    return "Outro";
+  };
+
   const formatCPF = (value: string) => {
     const v = value.replace(/\D/g, "");
     return v.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
   };
 
-  /**
-   * Formata o telefone enquanto o usuário digita
-   * Adiciona parênteses, espaço e hífen no padrão brasileiro
-   * Exemplo: "11987654321" vira "(11) 98765-4321"
-   */
   const formatPhone = (value: string) => {
     const v = value.replace(/\D/g, "");
     return v.replace(/(\d{2})(\d{4,5})(\d{4})/, "($1) $2-$3");
   };
 
-  /**
-   * Formata o CEP enquanto o usuário digita
-   * Adiciona hífen no padrão brasileiro
-   * Exemplo: "01234567" vira "01234-567"
-   */
   const formatZipCode = (value: string) => {
     const v = value.replace(/\D/g, "");
     return v.replace(/(\d{5})(\d{3})/, "$1-$2");
@@ -669,8 +561,6 @@ const Checkout: React.FC = () => {
   // TELA DE SUCESSO
   // ============================================================
 
-  // Se o pedido foi concluído, mostra uma tela de sucesso
-  // O usuário é redirecionado aqui automaticamente após finalizar
   if (orderComplete) {
     return (
       <Box sx={{ textAlign: "center", py: 8 }}>
@@ -700,9 +590,6 @@ const Checkout: React.FC = () => {
   // ============================================================
   // FUNÇÕES DE RENDERIZAÇÃO DOS FORMULÁRIOS
   // ============================================================
-
-  // Cada uma dessas funções renderiza uma etapa diferente do checkout
-  // Elas são chamadas dentro do JSX principal baseadas no activeStep
 
   const renderAddressForm = () => {
     return (
@@ -954,6 +841,15 @@ const Checkout: React.FC = () => {
                 <Typography variant="subtitle2" gutterBottom>
                   Selecione um ou mais cartões e defina o valor para cada um:
                 </Typography>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <strong>RN0034:</strong> Valor mínimo de R$ 10,00 por cartão
+                  {appliedCoupons.length > 0 && (
+                    <>
+                      <br />
+                      <strong>RN0035:</strong> Com cupons aplicados, valores menores são permitidos
+                    </>
+                  )}
+                </Alert>
                 {savedCards.map((card) => {
                   const cardSelection = selectedCards.find(
                     (sc) => sc.cardId === card.id
@@ -974,7 +870,7 @@ const Checkout: React.FC = () => {
                             <CreditCard />
                             <Box>
                               <Typography variant="body1" fontWeight="bold">
-                                **** **** **** {card.cardNumber}
+                                {card.brand || "Cartão"} **** {card.cardNumber}
                               </Typography>
                               <Typography
                                 variant="body2"
@@ -1117,6 +1013,22 @@ const Checkout: React.FC = () => {
                       ),
                     }}
                   />
+                </Grid>
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <input
+                        type="checkbox"
+                        checked={saveNewCard}
+                        onChange={(e) => setSaveNewCard(e.target.checked)}
+                        style={{ marginRight: 8 }}
+                      />
+                    }
+                    label="Salvar este cartão para compras futuras"
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    RF0036: Você pode salvar este cartão no seu perfil para facilitar futuras compras
+                  </Typography>
                 </Grid>
               </Grid>
             )}
