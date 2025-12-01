@@ -583,7 +583,7 @@ const AdminVendas: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {order.items.length} item(s)
+                          {order.items?.length || 0} item(s)
                           </Typography>
                         </TableCell>
                         <TableCell>

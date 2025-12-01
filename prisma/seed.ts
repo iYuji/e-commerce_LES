@@ -2,19 +2,16 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-// Função auxiliar para gerar CPF válido
 function generateCPF(): string {
   const randomDigits = () => Math.floor(Math.random() * 10);
   const cpf = Array.from({ length: 9 }, randomDigits);
   
-  // Calcular primeiro dígito verificador
   let sum = 0;
   for (let i = 0; i < 9; i++) {
     sum += cpf[i] * (10 - i);
   }
   cpf.push((sum * 10) % 11 === 10 ? 0 : (sum * 10) % 11);
   
-  // Calcular segundo dígito verificador
   sum = 0;
   for (let i = 0; i < 10; i++) {
     sum += cpf[i] * (11 - i);
@@ -24,9 +21,8 @@ function generateCPF(): string {
   return cpf.join('').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
 }
 
-// Função para gerar telefone brasileiro
 function generatePhone(): string {
-  const ddd = Math.floor(Math.random() * 89) + 11; // DDD de 11 a 99
+  const ddd = Math.floor(Math.random() * 89) + 11;
   const number = Math.floor(Math.random() * 900000000) + 100000000;
   return `(${ddd}) ${String(number).substring(0, 5)}-${String(number).substring(5)}`;
 }
@@ -34,14 +30,22 @@ function generatePhone(): string {
 async function main() {
   console.log("🧹 Limpando dados existentes...");
   
-  await prisma.orderItem.deleteMany();
-  await prisma.order.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.card.deleteMany();
+  try {
+    await prisma.orderItem.deleteMany();
+    console.log("   ✓ OrderItems deletados");
+    await prisma.order.deleteMany();
+    console.log("   ✓ Orders deletados");
+    await prisma.customer.deleteMany();
+    console.log("   ✓ Customers deletados");
+    await prisma.card.deleteMany();
+    console.log("   ✓ Cards deletados");
+  } catch (error) {
+    console.error("❌ Erro ao limpar dados:", error);
+    throw error;
+  }
 
-  console.log("👥 Criando clientes...");
+  console.log("\n👥 Criando clientes...");
   
-  // Lista de nomes brasileiros
   const firstNames = [
     "João", "Maria", "Pedro", "Ana", "Carlos", "Juliana", "Lucas", "Fernanda",
     "Rafael", "Camila", "Bruno", "Beatriz", "Gabriel", "Larissa", "Felipe",
@@ -84,7 +88,6 @@ async function main() {
     "Av. Atlântica", "Rua da Consolação", "Rua Oscar Freire", "Av. Ipiranga"
   ];
 
-  // Criar 100 clientes
   const customersData = [];
   for (let i = 0; i < 100; i++) {
     const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
@@ -104,14 +107,15 @@ async function main() {
     });
   }
 
-  await prisma.customer.createMany({ data: customersData });
-  console.log(`   ✓ ${customersData.length} clientes criados`);
+  try {
+    await prisma.customer.createMany({ data: customersData });
+    console.log(`   ✓ ${customersData.length} clientes criados`);
+  } catch (error) {
+    console.error("❌ Erro ao criar clientes:", error);
+    throw error;
+  }
 
-  console.log("🃏 Criando cartas...");
-  
-  // Expandir catálogo de cartas
-  const cardTypes = ["Fire", "Water", "Grass", "Electric", "Psychic", "Fighting", "Dark", "Dragon", "Fairy", "Steel", "Normal"];
-  const rarities = ["Common", "Uncommon", "Rare", "Ultra Rare", "Legendary", "Secret Rare"];
+  console.log("\n🃏 Criando cartas...");
   
   const cardsData = [
     // Legendários premium
@@ -165,175 +169,172 @@ async function main() {
     { name: "Weedle", type: "Grass", rarity: "Common", price: 9.0, stock: 310 },
   ];
 
-  // Adicionar descrições e imagens
   const cardsWithDetails = cardsData.map(card => ({
     ...card,
     description: `Carta ${card.rarity} do tipo ${card.type}. ${card.name} é uma excelente adição para sua coleção!`,
     image: `/images/${card.name.toLowerCase().replace(/\s+/g, '-')}.jpg`,
   }));
 
-  await prisma.card.createMany({ data: cardsWithDetails });
-  console.log(`   ✓ ${cardsWithDetails.length} cartas criadas`);
+  try {
+    await prisma.card.createMany({ data: cardsWithDetails });
+    console.log(`   ✓ ${cardsWithDetails.length} cartas criadas`);
+  } catch (error) {
+    console.error("❌ Erro ao criar cartas:", error);
+    throw error;
+  }
 
-  // Buscar todos os dados criados
   const allCustomers = await prisma.customer.findMany();
   const allCards = await prisma.card.findMany();
 
-  console.log("📦 Criando pedidos (últimos 12 meses)...");
+  console.log(`\n✅ Clientes carregados: ${allCustomers.length}`);
+  console.log(`✅ Cartas carregadas: ${allCards.length}`);
 
-  const today = new Date();
-  const statuses = ["completed", "pending", "cancelled"];
-  const paymentMethods = ["credit_card", "debit_card", "pix", "boleto"];
-  
-  // Distribuição de vendas por mês (simulando sazonalidade)
-  const salesByMonth = [
-    { month: 0, orders: 80 },   // 12 meses atrás
-    { month: 1, orders: 85 },   // 11 meses atrás
-    { month: 2, orders: 95 },   // 10 meses atrás
-    { month: 3, orders: 110 },  // 9 meses atrás
-    { month: 4, orders: 120 },  // 8 meses atrás
-    { month: 5, orders: 105 },  // 7 meses atrás
-    { month: 6, orders: 130 },  // 6 meses atrás (meio do ano)
-    { month: 7, orders: 140 },  // 5 meses atrás
-    { month: 8, orders: 125 },  // 4 meses atrás
-    { month: 9, orders: 150 },  // 3 meses atrás
-    { month: 10, orders: 180 }, // 2 meses atrás (black friday)
-    { month: 11, orders: 200 }, // Mês passado (natal)
-  ];
+  console.log("\n📦 Criando pedidos (versão simplificada para teste)...");
 
   let totalOrders = 0;
+  let errorCount = 0;
 
-  for (const { month, orders } of salesByMonth) {
-    console.log(`   Criando ${orders} pedidos para ${month + 1} mês(es) atrás...`);
-    
-    for (let i = 0; i < orders; i++) {
-      // Data aleatória dentro do mês específico
-      const monthsAgo = 11 - month;
-      const orderDate = new Date(today);
-      orderDate.setMonth(today.getMonth() - monthsAgo);
+  // 🔧 TESTE: Criar apenas 10 pedidos primeiro
+  console.log("   🧪 Teste: Criando 10 pedidos...");
+  
+  for (let i = 0; i < 10; i++) {
+    try {
+      const customer = allCustomers[Math.floor(Math.random() * allCustomers.length)];
+      const card = allCards[Math.floor(Math.random() * allCards.length)];
       
-      // Dia aleatório do mês
-      const daysInMonth = new Date(orderDate.getFullYear(), orderDate.getMonth() + 1, 0).getDate();
-      orderDate.setDate(Math.floor(Math.random() * daysInMonth) + 1);
+      const orderDate = new Date(2025, 10, 1); // Nov 2025
       
-      // Hora aleatória (principalmente horário comercial)
-      const hour = Math.random() < 0.8 
-        ? Math.floor(Math.random() * 12) + 8  // 8h-20h (80%)
-        : Math.floor(Math.random() * 24);     // 0h-24h (20%)
-      orderDate.setHours(hour, Math.floor(Math.random() * 60), Math.floor(Math.random() * 60));
-
-      // Cliente aleatório (alguns clientes compram mais)
-      const customerIndex = Math.random() < 0.3 
-        ? Math.floor(Math.random() * 20) // 30% dos pedidos vêm dos primeiros 20 clientes (clientes fiéis)
-        : Math.floor(Math.random() * allCustomers.length);
-      const customer = allCustomers[customerIndex];
-
-      // Status (95% completed, 3% pending, 2% cancelled)
-      const statusRandom = Math.random();
-      let status: string;
-      if (statusRandom < 0.95) {
-        status = "completed";
-      } else if (statusRandom < 0.98) {
-        status = "pending";
-      } else {
-        status = "cancelled";
-      }
-
-      // Método de pagamento (distribuição realista)
-      const paymentRandom = Math.random();
-      let paymentMethod: string;
-      if (paymentRandom < 0.35) {
-        paymentMethod = "pix"; // 35%
-      } else if (paymentRandom < 0.70) {
-        paymentMethod = "credit_card"; // 35%
-      } else if (paymentRandom < 0.90) {
-        paymentMethod = "debit_card"; // 20%
-      } else {
-        paymentMethod = "boleto"; // 10%
-      }
-
-      // Quantidade de itens (distribuição realista: mais pedidos pequenos)
-      const itemCountRandom = Math.random();
-      let itemCount: number;
-      if (itemCountRandom < 0.50) {
-        itemCount = 1; // 50% compram 1 carta
-      } else if (itemCountRandom < 0.75) {
-        itemCount = 2; // 25% compram 2 cartas
-      } else if (itemCountRandom < 0.90) {
-        itemCount = 3; // 15% compram 3 cartas
-      } else {
-        itemCount = Math.floor(Math.random() * 5) + 4; // 10% compram 4-8 cartas
-      }
-
-      // Selecionar cartas (cartas mais baratas são mais vendidas)
-      const selectedCards = [];
-      for (let j = 0; j < itemCount; j++) {
-        const priceRandom = Math.random();
-        let card;
-        
-        if (priceRandom < 0.60) {
-          // 60% das vendas são cartas comuns/baratas
-          const commonCards = allCards.filter(c => c.price < 50);
-          card = commonCards[Math.floor(Math.random() * commonCards.length)];
-        } else if (priceRandom < 0.85) {
-          // 25% são cartas médias
-          const mediumCards = allCards.filter(c => c.price >= 50 && c.price < 200);
-          card = mediumCards[Math.floor(Math.random() * mediumCards.length)];
-        } else {
-          // 15% são cartas caras/raras
-          const expensiveCards = allCards.filter(c => c.price >= 200);
-          card = expensiveCards[Math.floor(Math.random() * expensiveCards.length)];
-        }
-        
-        selectedCards.push(card);
-      }
-
-      // Calcular total
-      let total = 0;
-      const items = selectedCards.map(card => {
-        const quantity = Math.random() < 0.85 ? 1 : Math.floor(Math.random() * 3) + 2; // 85% compram 1 unidade
-        const subtotal = card.price * quantity;
-        total += subtotal;
-        
-        return {
-          cardId: card.id,
-          quantity,
-          price: card.price,
-        };
-      });
-
-      // Criar pedido
-      await prisma.order.create({
+      console.log(`      Criando pedido ${i + 1}/10...`);
+      
+      const order = await prisma.order.create({
         data: {
           customerId: customer.id,
-          total,
-          status,
-          paymentMethod,
+          total: card.price,
+          status: "DELIVERED",
+          paymentMethod: "PIX",
+          shippingAddress: customer.address,
           createdAt: orderDate,
           updatedAt: orderDate,
-          items: {
-            create: items,
+          orderItems: {
+            create: [
+              {
+                cardId: card.id,
+                quantity: 1,
+                price: card.price,
+              }
+            ],
           },
         },
       });
-
+      
+      console.log(`      ✓ Pedido criado: ${order.id}`);
       totalOrders++;
+      
+    } catch (error) {
+      console.error(`      ❌ Erro ao criar pedido ${i + 1}:`, error);
+      errorCount++;
     }
   }
 
-  console.log("\n✅ Seed concluído com sucesso!");
-  console.log("═══════════════════════════════════════");
+  console.log(`\n   📊 Resultado do teste:`);
+  console.log(`      ✅ Pedidos criados: ${totalOrders}`);
+  console.log(`      ❌ Erros: ${errorCount}`);
+
+  if (totalOrders > 0) {
+    console.log(`\n   ✅ TESTE BEM-SUCEDIDO! Criando pedidos completos...`);
+    
+    // Criar mais pedidos se o teste funcionou
+    const salesByMonth = [
+      { year: 2024, month: 11, orders: 50, label: "Nov/2024" },
+      { year: 2024, month: 12, orders: 50, label: "Dez/2024" },
+      { year: 2025, month: 10, orders: 50, label: "Out/2025" },
+      { year: 2025, month: 11, orders: 50, label: "Nov/2025" },
+    ];
+
+    for (const { year, month, orders, label } of salesByMonth) {
+      console.log(`\n   Criando ${orders} pedidos para ${label}...`);
+      
+      for (let i = 0; i < orders; i++) {
+        try {
+          const daysInMonth = new Date(year, month, 0).getDate();
+          const day = Math.floor(Math.random() * daysInMonth) + 1;
+          const hour = Math.floor(Math.random() * 24);
+          const orderDate = new Date(year, month - 1, day, hour, 0, 0);
+
+          const customer = allCustomers[Math.floor(Math.random() * allCustomers.length)];
+          
+          // Selecionar 1-3 cartas
+          const itemCount = Math.floor(Math.random() * 3) + 1;
+          const selectedCards = [];
+          for (let j = 0; j < itemCount; j++) {
+            const card = allCards[Math.floor(Math.random() * allCards.length)];
+            selectedCards.push(card);
+          }
+
+          let total = 0;
+          const items = selectedCards.map(card => {
+            const quantity = 1;
+            total += card.price * quantity;
+            return {
+              cardId: card.id,
+              quantity,
+              price: card.price,
+            };
+          });
+
+          await prisma.order.create({
+            data: {
+              customerId: customer.id,
+              total,
+              status: "DELIVERED",
+              paymentMethod: "PIX",
+              shippingAddress: customer.address,
+              createdAt: orderDate,
+              updatedAt: orderDate,
+              orderItems: {
+                create: items,
+              },
+            },
+          });
+
+          totalOrders++;
+          
+          if ((i + 1) % 10 === 0) {
+            console.log(`      Progresso: ${i + 1}/${orders}`);
+          }
+          
+        } catch (error) {
+          console.error(`      Erro no pedido ${i + 1}:`, error);
+          errorCount++;
+        }
+      }
+    }
+  } else {
+    console.log(`\n   ❌ TESTE FALHOU! Nenhum pedido foi criado.`);
+    console.log(`\n   💡 Verifique:`);
+    console.log(`      1. O schema do Prisma está correto?`);
+    console.log(`      2. As relações entre Order e OrderItem estão configuradas?`);
+    console.log(`      3. Rode: npx prisma generate`);
+  }
+
+  console.log("\n✅ Seed concluído!");
+  console.log("╔═══════════════════════════════════════╗");
   console.log(`   👥 Clientes: ${allCustomers.length}`);
   console.log(`   🃏 Cartas: ${allCards.length}`);
   console.log(`   📦 Pedidos: ${totalOrders}`);
-  console.log(`   📅 Período: Últimos 12 meses`);
-  console.log(`   💰 Receita estimada: R$ ${(totalOrders * 85).toFixed(2)}`);
-  console.log("═══════════════════════════════════════");
+  console.log(`   ❌ Erros: ${errorCount}`);
+  console.log("╚═══════════════════════════════════════╝");
+  
+  // Verificar se os pedidos foram salvos
+  const finalOrderCount = await prisma.order.count();
+  console.log(`\n🔍 Verificação final: ${finalOrderCount} pedidos no banco`);
 }
 
 main()
   .catch((e) => {
-    console.error("❌ Erro durante o seed:", e);
+    console.error("\n❌ Erro durante o seed:", e);
+    console.error("\n📋 Stack trace completo:");
+    console.error(e.stack);
     process.exit(1);
   })
   .finally(async () => {

@@ -45,36 +45,26 @@ model Card {
 }
 
 model Order {
-  id                String        @id @default(cuid())
-  customerId        String        @map("customer_id")
-  total             Float
-  status            OrderStatus   @default(PENDING)
-  shippingAddress   String        @map("shipping_address") // JSON string
-  paymentMethod     PaymentMethod @map("payment_method")
-  createdAt         DateTime      @default(now()) @map("created_at")
-  updatedAt         DateTime      @updatedAt @map("updated_at")
-  estimatedDelivery DateTime?     @map("estimated_delivery")
-
-  // Relacionamentos
-  customer   Customer    @relation(fields: [customerId], references: [id])
-  orderItems OrderItem[]
-
-  @@map("orders")
+  id              String      @id @default(cuid())
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id])
+  total           Float
+  status          String
+  paymentMethod   String
+  shippingAddress String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  orderItems      OrderItem[]
 }
 
 model OrderItem {
-  id        String   @id @default(cuid())
-  orderId   String   @map("order_id")
-  cardId    String   @map("card_id")
-  quantity  Int
-  price     Float
-  createdAt DateTime @default(now()) @map("created_at")
-
-  // Relacionamentos
-  order Order @relation(fields: [orderId], references: [id])
-  card  Card  @relation(fields: [cardId], references: [id])
-
-  @@map("order_items")
+  id       String @id @default(cuid())
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  cardId   String
+  card     Card   @relation(fields: [cardId], references: [id])
+  quantity Int
+  price    Float
 }
 
 enum OrderStatus {

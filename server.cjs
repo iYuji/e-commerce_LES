@@ -403,9 +403,20 @@ app.get('/api/orders', async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
     
+    // 🔧 TRANSFORMAR orderItems para items (formato esperado pelo frontend)
+    const ordersFormatted = orders.map(order => ({
+      ...order,
+      items: order.orderItems.map(item => ({
+        cardId: item.cardId,
+        quantity: item.quantity,
+        price: item.price,
+        card: item.card
+      }))
+    }));
+    
     await prisma.$disconnect();
     
-    res.json(orders);
+    res.json(ordersFormatted);
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).json({ 
@@ -441,7 +452,18 @@ app.get('/api/orders/:id', async (req, res) => {
       return res.status(404).json({ error: 'Order not found' });
     }
     
-    res.json(order);
+    // 🔧 TRANSFORMAR orderItems para items
+    const orderFormatted = {
+      ...order,
+      items: order.orderItems.map(item => ({
+        cardId: item.cardId,
+        quantity: item.quantity,
+        price: item.price,
+        card: item.card
+      }))
+    };
+    
+    res.json(orderFormatted);
   } catch (error) {
     console.error('Error fetching order:', error);
     res.status(500).json({ 
@@ -450,7 +472,6 @@ app.get('/api/orders/:id', async (req, res) => {
     });
   }
 });
-
 // ========== RECOMMENDATIONS ENDPOINTS ==========
 
 // GET /api/recommendations - Recomendações personalizadas
