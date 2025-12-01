@@ -225,10 +225,8 @@ const Checkout: React.FC = () => {
           return false;
         }
 
-        // RN0034: Validar valor mínimo de R$ 10,00 por cartão
-        // RN0035: Exceto quando usa cupons, aí pode ser menor
         const minimumPerCard = discountAmount > 0 ? 0 : 10.0;
-        
+
         for (const card of selectedCards) {
           if (card.amount < minimumPerCard) {
             if (discountAmount > 0) {
@@ -236,7 +234,9 @@ const Checkout: React.FC = () => {
               continue;
             }
             alert(
-              `O valor mínimo para cada cartão é R$ 10,00. Cartão com R$ ${card.amount.toFixed(2)} não é permitido.`
+              `O valor mínimo para cada cartão é R$ 10,00. Cartão com R$ ${card.amount.toFixed(
+                2
+              )} não é permitido.`
             );
             return false;
           }
@@ -412,7 +412,7 @@ const Checkout: React.FC = () => {
         if (useNewCard) {
           // Novo cartão: salva apenas os últimos 4 dígitos no pedido
           const last4Digits = paymentInfo.cardNumber?.slice(-4) || "";
-          
+
           paymentInfoForOrder.creditCards = [
             {
               cardNumber: last4Digits,
@@ -430,11 +430,16 @@ const Checkout: React.FC = () => {
               cardNumber: last4Digits,
               cardName: paymentInfo.cardName || "",
               expiryDate: paymentInfo.expiryDate || "",
-              brand: detectCardBrand(paymentInfo.cardNumber),
+              brand: mapCardBrand(detectCardBrand(paymentInfo.cardNumber)),
               isDefault: savedCards.length === 0,
             };
-            
-            Store.addCreditCard(newCard);
+
+            const allCards: CreditCardType[] = Store.readStore(
+              "creditCards",
+              []
+            );
+            allCards.push(newCard);
+            Store.writeStore("creditCards", allCards);
             console.log("✅ Novo cartão salvo no perfil:", newCard);
           }
         } else {
@@ -527,7 +532,7 @@ const Checkout: React.FC = () => {
    */
   const detectCardBrand = (cardNumber: string): string => {
     const number = cardNumber.replace(/\s/g, "");
-    
+
     if (/^4/.test(number)) return "Visa";
     if (/^5[1-5]/.test(number)) return "Mastercard";
     if (/^3[47]/.test(number)) return "American Express";
@@ -538,8 +543,28 @@ const Checkout: React.FC = () => {
     if (/^(5018|5020|5038|6304|6759|676[1-3])/.test(number)) return "Maestro";
     if (/^(606282|3841)/.test(number)) return "Hipercard";
     if (/^63[7-9]/.test(number)) return "Elo";
-    
+
     return "Outro";
+  };
+
+  /**
+   * Mapeia a bandeira detectada para o tipo permitido
+   */
+  const mapCardBrand = (
+    brand: string
+  ): "visa" | "mastercard" | "elo" | "amex" => {
+    switch (brand.toLowerCase()) {
+      case "visa":
+        return "visa";
+      case "mastercard":
+        return "mastercard";
+      case "elo":
+        return "elo";
+      case "american express":
+        return "amex";
+      default:
+        return "visa"; // fallback padrão
+    }
   };
 
   const formatCPF = (value: string) => {
@@ -842,11 +867,9 @@ const Checkout: React.FC = () => {
                   Selecione um ou mais cartões e defina o valor para cada um:
                 </Typography>
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  <strong>RN0034:</strong> Valor mínimo de R$ 10,00 por cartão
                   {appliedCoupons.length > 0 && (
                     <>
                       <br />
-                      <strong>RN0035:</strong> Com cupons aplicados, valores menores são permitidos
                     </>
                   )}
                 </Alert>
@@ -1026,8 +1049,13 @@ const Checkout: React.FC = () => {
                     }
                     label="Salvar este cartão para compras futuras"
                   />
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    RF0036: Você pode salvar este cartão no seu perfil para facilitar futuras compras
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                  >
+                    RF0036: Você pode salvar este cartão no seu perfil para
+                    facilitar futuras compras
                   </Typography>
                 </Grid>
               </Grid>

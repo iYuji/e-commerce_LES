@@ -13,6 +13,7 @@ import { StockService } from "../services/stockService";
 import { CouponService } from "../services/couponService";
 
 // Local storage backed store with in-memory fallback
+export const THEME_KEY = "theme";
 export const SESSION_KEY = "session";
 const __memStore: Record<string, any> = {};
 
@@ -235,6 +236,34 @@ export function validateCartForCheckout(cartItems: CartItem[]): {
     errors: result.errors ?? [],
     warnings: result.warnings ?? [],
   };
+}
+
+// Theme functions
+export function getTheme(): "light" | "dark" {
+  try {
+    return readStore(THEME_KEY, "light") as "light" | "dark";
+  } catch {
+    return "light";
+  }
+}
+
+export function setTheme(theme: "light" | "dark"): void {
+  try {
+    writeStore(THEME_KEY, theme);
+    window.dispatchEvent(new CustomEvent("theme:change"));
+  } catch (error) {
+    console.error("Error setting theme:", error);
+  }
+}
+
+export function toggleTheme(): void {
+  try {
+    const currentTheme = getTheme();
+    const newTheme = currentTheme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+  } catch (error) {
+    console.error("Error toggling theme:", error);
+  }
 }
 
 // Seed data

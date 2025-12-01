@@ -1,71 +1,128 @@
 # PokéCard Store - React TypeScript
 
-Este projeto foi convertido de JavaScript vanilla para React TypeScript com Material-UI (MUI).
+Loja online de cartas Pokemon usando React + TypeScript + Material-UI com **persistência 100% localStorage**.
 
 ## 🚀 Tecnologias Utilizadas
 
-- **React 18** - Biblioteca JavaScript para construção de interfaces de usuário
-- **TypeScript** - Superset do JavaScript que adiciona tipagem estática
-- **Material-UI (MUI)** - Biblioteca de componentes React com Design System
-- **React Router DOM** - Roteamento para aplicações React
+- **React 18** - Biblioteca JavaScript para construção de interfaces
+- **TypeScript** - Tipagem estática para JavaScript
+- **Material-UI (MUI)** - Design System e componentes React
+- **React Router DOM** - Roteamento client-side
 - **Vite** - Build tool moderna e rápida
-- **Node.js** - Ambiente de execução JavaScript
+- **localStorage** - Persistência de dados 100% no navegador (sem backend/banco de dados)
+- **Google Gemini AI** - Recomendações e chat inteligente (opcional - requer backend separado)
+- **Cypress** - Testes end-to-end
 
-## 📁 Estrutura do Projeto
+## 💾 Arquitetura de Dados
+
+Este projeto usa **100% localStorage** como camada de persistência. Não há backend, banco de dados ou API REST para dados principais.
+
+### Armazenamento Local:
 
 ```
+localStorage
+├── cards         → 40+ cartas Pokemon
+├── cart          → Carrinho de compras
+├── orders        → Pedidos realizados
+├── customers     → Clientes cadastrados
+├── session       → Usuário logado
+├── coupons       → Cupons de desconto
+├── exchanges     → Solicitações de troca
+├── addresses     → Endereços salvos
+└── creditCards   → Cartões cadastrados
+```
+
 src/
-├── components/         # Componentes reutilizáveis
-│   └── Layout.tsx     # Layout principal da aplicação
-├── pages/             # Páginas da aplicação
-│   ├── admin/         # Páginas administrativas
-│   ├── Catalogo.tsx   # Página do catálogo de cartas
-│   ├── Carrinho.tsx   # Página do carrinho de compras
-│   ├── Auth.tsx       # Página de autenticação
-│   └── ...
-├── store/             # Gerenciamento de estado
-│   └── index.ts       # Store principal com localStorage
-├── theme/             # Configuração do tema Material-UI
-│   └── theme.ts       # Tema escuro customizado
-├── types/             # Definições de tipos TypeScript
-│   └── index.ts       # Interfaces principais
-├── App.tsx            # Componente principal
-└── main.tsx           # Ponto de entrada da aplicação
-```
+├── api/ # APIs externas (IA)
+│ ├── chatApi.ts # Google Gemini Chat
+│ └── recommendationApi.ts # Recomendações IA
+├── components/ # Componentes reutilizáveis
+│ ├── Layout.tsx # Layout principal
+│ ├── Recommendations.tsx # Recomendações IA
+│ ├── AddressManager.tsx # Gerenciador de endereços
+│ └── CreditCardManager.tsx # Gerenciador de cartões
+├── pages/ # Páginas da aplicação
+│ ├── admin/ # Área administrativa
+│ │ ├── AdminCartas.tsx
+│ │ ├── AdminClientes.tsx
+│ │ ├── AdminEstoque.tsx
+│ │ ├── AdminVendas.tsx
+│ │ ├── AdminTrocas.tsx
+│ │ └── AdminRelatorios.tsx
+│ ├── Catalogo.tsx # Catálogo de cartas
+│ ├── Carrinho.tsx # Carrinho de compras
+│ ├── Checkout.tsx # Finalização de compra
+│ ├── Auth.tsx # Login/Cadastro
+│ ├── MinhaConta.tsx # Perfil do usuário
+│ ├── MeusPedidos.tsx # Histórico de pedidos
+│ ├── Trocas.tsx # Solicitações de troca
+│ ├── Cupons.tsx # Cupons disponíveis
+│ └── Assistente.tsx # Chat com IA
+├── store/ # Gerenciamento de estado
+│ ├── index.ts # CRUD com localStorage
+│ └── store.ts # Store principal
+├── services/ # Lógica de negócio
+│ ├── stockService.ts # Controle de estoque
+│ └── couponService.ts # Sistema de cupons
+├── theme/ # Customização MUI
+│ └── theme.ts # Tema escuro
+
+- ✅ **Catálogo de Cartas**: Navegação com filtros por tipo, raridade e preço
+- ✅ **Carrinho de Compras**: Adicionar, remover, atualizar quantidades
+- ✅ **Autenticação**: Sistema de login e cadastro com validação
+- ✅ **Área do Cliente**: Gerenciamento de pedidos, perfil e cupons
+- ✅ **Checkout**: Múltiplas formas de pagamento (cartão, boleto, PIX)
+- ✅ **Endereços e Cartões**: Salvar e gerenciar dados de entrega e pagamento
+- ✅ **Sistema de Cupons**: Aplicar descontos no checkout
+- ✅ **Trocas/Devoluções**: Solicitar e acompanhar trocas de produtos
+- ✅ **Assistente IA**: Chat inteligente com Google Gemini (requer backend)
+- ✅ **Recomendações**: Sugestões personalizadas via IA (requer backend)
+  │ └── index.ts # CRUD com localStorage
+  ├── services/ # Serviços (Stock, Coupons)
+  ├── theme/ # Tema Material-UI
+  ├── types/ # Tipos TypeScript
+  ├── App.tsx # App principal
+  └── main.tsx # Entry point
+
+````
 
 ## ✨ Funcionalidades
 
 ### Usuário Final
-- **Catálogo de Cartas**: Navegação e filtros por tipo e raridade
-- **Carrinho de Compras**: Adição/remoção de itens
-- **Autenticação**: Login e cadastro de usuários
-- **Área do Cliente**: Meus pedidos, trocas e cupons
-- **Checkout**: Finalização de compras
-- **Assistente IA**: Interface para assistente virtual
 
-### Administração
-- **Gerenciamento de Cartas**: CRUD de cartas
-- **Clientes**: Visualização e gestão de clientes
-- **Vendas**: Controle de vendas realizadas
-- **Estoque**: Gerenciamento de inventário
-- **Trocas**: Processamento de solicitações de troca
+- ✅ **Catálogo de Cartas**: Navegação com filtros avançados
+- ✅ **Carrinho de Compras**: Gestão de itens
+- ✅ **Autenticação**: Login e cadastro
+- ✅ **Área do Cliente**: Pedidos, perfil, cupons
+- ✅ **Checkout**: Finalização com múltiplas formas de pagamento
+- ✅ **Trocas/Devoluções**: Sistema completo de solicitações
+- ✅ **Assistente IA**: Chat com Google Gemini
+- ✅ **Recomendações**: Sistema de IA para sugestões personalizadas
+
+- ✅ **Gerenciamento de Cartas**: CRUD completo com upload de imagens
+- ✅ **Gestão de Clientes**: Visualização, edição e estatísticas
+- ✅ **Controle de Vendas**: Acompanhamento de pedidos e alteração de status
+- ✅ **Gerenciamento de Estoque**: Controle de quantidades e disponibilidade
+- ✅ **Gestão de Trocas**: Aprovar ou recusar solicitações de devolução
+- ✅ **Relatórios**: Dashboard com gráficos de vendas, produtos e clientesicitações
+- ✅ **Relatórios**: Dashboard com gráficos
 - **Relatórios**: Dashboards e análises
 
 ## 🎨 Design System
 
 O projeto utiliza Material-UI com tema escuro customizado inspirado no design original:
+
 - Cores principais: Azul (#4f7cff) e Verde (#06d6a0)
 - Background gradiente escuro
 - Componentes responsivos
 - Iconografia consistente
-
 ## 🛠️ Comandos Disponíveis
 
 ```bash
 # Instalar dependências
 npm install
 
-# Iniciar servidor de desenvolvimento
+# Iniciar servidor de desenvolvimento (porta 3000)
 npm run dev
 
 # Build para produção
@@ -74,31 +131,36 @@ npm run build
 # Preview da build de produção
 npm run preview
 
-# Linting
-npm run lint
-```
+# Testes E2E com Cypress (interface)
+npm run cypress:open
 
-## 🔄 Migração JavaScript → TypeScript
+# Testes E2E com Cypress (headless)
+npm run cypress:run
 
-### Principais Mudanças:
+## 🧪 Testes
 
-1. **Estrutura de Arquivos**:
-   - `.js` → `.tsx` para componentes React
-   - `.js` → `.ts` para utilitários
-   - Remoção do CSS vanilla em favor do sistema de temas MUI
+O projeto utiliza **Cypress** para testes end-to-end:
 
-2. **Roteamento**:
-   - Hash routing → React Router DOM com BrowserRouter
-   - Funções de página → Componentes React
+### Testes Implementados:
+- ✅ **Fluxo de Compra Completo** (`01-purchase-flow.cy.ts`)
+  - Navegação no catálogo
+  - Adicionar produtos ao carrinho
+  - Processo de checkout
+  - Finalização de pedido
 
-3. **Estado**:
-   - localStorage direto → Store TypeScript tipado
-   - Eventos customizados mantidos para compatibilidade
+- ✅ **Solicitação de Troca** (`02-exchange-request.cy.ts`)
+  - Criar solicitação de troca
+  - Validar status e informações
+  - Fluxo de aprovação/recusa
 
-4. **UI/UX**:
-   - HTML/CSS customizado → Componentes Material-UI
-   - Layout responsivo nativo
-   - Tema escuro consistente
+### Como executar:
+```bash
+# Interface gráfica do Cypress
+npm run cypress:open
+
+# Modo headless (CI/CD)
+npm run cypress:run
+````
 
 5. **Tipagem**:
    - Definições de interfaces para Card, Order, Customer, etc.
@@ -108,6 +170,7 @@ npm run lint
 ## 📱 Responsividade
 
 O projeto é totalmente responsivo usando o sistema de breakpoints do Material-UI:
+
 - xs: 0px+
 - sm: 600px+
 - md: 900px+
@@ -116,18 +179,53 @@ O projeto é totalmente responsivo usando o sistema de breakpoints do Material-U
 
 ## 🎯 Próximos Passos
 
-- [ ] Implementar funcionalidades completas do carrinho
-- [ ] Adicionar autenticação real com JWT
-- [ ] Conectar com API backend
-- [ ] Implementar testes unitários
-- [ ] Adicionar PWA capabilities
-- [ ] Otimizar performance e bundle size
+## 🔌 Backend Opcional (IA)
+
+As funcionalidades de **Chat Assistente** e **Recomendações IA** requerem um backend separado com:
+
+- Google Gemini API
+- Endpoints em `http://localhost:3002/api/chat` e `http://localhost:3002/api/recommendations`
+
+> A aplicação funciona **100% sem backend**, mas recursos de IA estarão indisponíveis.
 
 ## 🚀 Como Executar
 
-1. Clone o repositório
-2. Instale as dependências: `npm install`
-3. Execute o projeto: `npm run dev`
-4. Acesse: `http://localhost:3000`
+## 🚀 Como Executar
 
-O projeto estará disponível no navegador com hot reload ativo.
+1. **Clone o repositório**
+
+   ```bash
+   git clone https://github.com/iYuji/e-commerce_LES.git
+   cd e-commerce_LES
+   ```
+
+2. **Instale as dependências**
+
+   ```bash
+   npm install
+   ```
+
+3. **Execute o projeto**
+
+   ```bash
+   npm run dev
+   ```
+
+4. **Acesse no navegador**
+   - Frontend: `http://localhost:3000`
+   - Hot reload ativo ✅
+
+### Credenciais de Teste:
+
+- **Admin**: Use qualquer email com senha válida
+- **Cliente**: Crie uma conta pelo formulário de cadastro
+
+---
+
+## 📄 Licença
+
+Este projeto foi desenvolvido para fins educacionais.
+
+## 👥 Contribuidores
+
+Desenvolvido como projeto da disciplina de Laboratório de Engenharia de Software.

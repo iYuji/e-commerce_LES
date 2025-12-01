@@ -1,11 +1,6 @@
 /// <reference types="cypress" />
 
-/**
- * Teste de Caso de Uso 04: Cliente Solicitar Troca/Devolução
- *
- * Cenário: Cliente faz uma compra rápida e depois solicita troca
- */
-describe("UC04 - Cliente Solicitar Troca/Devolução", () => {
+describe("UC02 - Cliente Solicitar Troca/Devolução", () => {
   const customerEmail = "cliente@test.com";
   const customerName = "Cliente Teste";
 
@@ -101,10 +96,10 @@ describe("UC04 - Cliente Solicitar Troca/Devolução", () => {
           });
         cy.wait(1000);
 
-        // 13. Selecionar "Vendas"
-        cy.contains("Vendas", { matchCase: false }).click();
+        // 13. Selecionar "Pedidos"
+        cy.contains("li", "Pedidos", { matchCase: false }).click();
         cy.wait(1000);
-        cy.log("✓ Acessou página de Vendas (Admin)");
+        cy.log("✓ Acessou página de Pedidos (Admin)");
 
         // 14. Clicar no primeiro ícone de lápis (Editar status) da primeira venda
         cy.get('svg[data-testid="EditIcon"]').first().click();
@@ -165,17 +160,25 @@ describe("UC04 - Cliente Solicitar Troca/Devolução", () => {
         });
         cy.wait(1000);
 
-        // 22. Selecionar motivo - clicar no campo que contém "Motivo"
-        cy.contains("Motivo").click();
-        cy.wait(1000);
+        // 22. Selecionar motivo - clicar no primeiro Select (Motivo)
+        cy.get('[role="dialog"]')
+          .last()
+          .within(() => {
+            cy.get(".MuiSelect-select").first().click();
+          });
+        cy.wait(500);
 
         // Selecionar "Outro motivo" da lista que abriu (fora do modal)
         cy.contains("li", "Outro motivo", { matchCase: false }).click();
         cy.wait(500);
 
-        // 23. Selecionar condição do produto
-        cy.contains("Condição do Produto").click();
-        cy.wait(1000);
+        // 23. Selecionar condição do produto - clicar no segundo Select
+        cy.get('[role="dialog"]')
+          .last()
+          .within(() => {
+            cy.get(".MuiSelect-select").last().click();
+          });
+        cy.wait(500);
 
         // Selecionar "Lacrado/Sem uso" da lista que abriu (fora do modal)
         cy.contains("li", "Lacrado", { matchCase: false }).click();

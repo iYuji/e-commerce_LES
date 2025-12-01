@@ -33,7 +33,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import * as Store from "../store/index";
 import { Card as CardType } from "../types";
-import Recommendations from "../components/Recommendations";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -54,76 +53,22 @@ const Catalogo: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
   useEffect(() => {
-    // Função para carregar/recarregar as cartas
-    const loadCards = () => {
-      // NÃO limpar cartas na recarga de estoque
-      const existingCards = localStorage.getItem("cards");
-      if (!existingCards) {
-        Store.ensureSeed();
-      }
+    // Limpar cartas antigas e recriar com novas URLs
+    localStorage.removeItem("cards");
+    Store.ensureSeed();
 
-      const loadedCards = Store.getCards();
-      console.log("📦 Cartas carregadas:", loadedCards.length);
+    const loadedCards = Store.getCards();
+    setCards(loadedCards);
+    setFilteredCards(loadedCards);
 
-      // Log de algumas cartas para debug
-      if (loadedCards.length > 0) {
-        console.log("🎴 Exemplo de carta:", {
-          name: loadedCards[0].name,
-          stock: loadedCards[0].stock,
-        });
-      }
-
-      setCards(loadedCards);
-      setFilteredCards(loadedCards);
-
-      // Calcular range de preços automático
-      if (loadedCards.length > 0) {
-        const prices = loadedCards.map((card: CardType) => card.price);
-        const minPrice = Math.min(...prices);
-        const maxPrice = Math.max(...prices);
-        setPriceRange([minPrice, maxPrice]);
-      }
-    };
-
-    // Carregar inicialmente
-    loadCards();
-
-    // ✅ NOVO: Escutar evento de atualização de estoque
-    const handleStockUpdate = () => {
-      console.log("🔔 Evento stock:updated recebido!");
-
-      // Ler diretamente do localStorage para ter certeza
-      const cardsJSON = localStorage.getItem("cards");
-      if (cardsJSON) {
-        const freshCards = JSON.parse(cardsJSON);
-        console.log(
-          "📦 Cartas atualizadas do localStorage:",
-          freshCards.length
-        );
-
-        // Log da primeira carta para verificar estoque
-        if (freshCards.length > 0) {
-          console.log("🎴 Exemplo após atualização:", {
-            name: freshCards[0].name,
-            stock: freshCards[0].stock,
-          });
-        }
-
-        // Atualizar estado diretamente
-        setCards([...freshCards]); // Força nova referência
-      } else {
-        console.error("❌ localStorage.cards não encontrado!");
-      }
-    };
-
-    window.addEventListener("stock:updated", handleStockUpdate);
-
-    // Cleanup
-    return () => {
-      window.removeEventListener("stock:updated", handleStockUpdate);
-    };
+    // Calcular range de preços automático
+    if (loadedCards.length > 0) {
+      const prices = loadedCards.map((card: CardType) => card.price);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      setPriceRange([minPrice, maxPrice]);
+    }
   }, []);
-
   useEffect(() => {
     let filtered = cards;
 
@@ -459,7 +404,7 @@ const Catalogo: React.FC = () => {
                 height: "100%",
                 display: "flex",
                 flexDirection: viewMode === "grid" ? "column" : "row",
-                boxShadow: 2,
+                boxShadow: 2, // sombra menor
                 cursor: "pointer",
                 transition: "all 0.3s ease",
                 position: "relative",
@@ -503,7 +448,7 @@ const Catalogo: React.FC = () => {
                   alignItems: "center",
                   justifyContent: "center",
                   flexShrink: 0,
-                  mt: 3,
+                  mt: 3, // margem no topo da imagem
                   border: "2px solid rgba(255,255,255,0.3)",
                   borderRadius: 2,
                   boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
@@ -530,10 +475,10 @@ const Catalogo: React.FC = () => {
                   flexGrow: 1,
                   display: "flex",
                   flexDirection: "column",
-                  pt: 4,
-                  px: 3,
-                  pb: 3,
-                  gap: 2,
+                  pt: 4, // padding-top maior especificamente
+                  px: 3, // padding lateral
+                  pb: 3, // padding bottom
+                  gap: 2, // espaçamento entre elementos internos
                 }}
               >
                 <Typography gutterBottom variant="h6" component="h2">
@@ -640,15 +585,6 @@ const Catalogo: React.FC = () => {
             Limpar Filtros
           </Button>
         </Box>
-      )}
-
-      {/* Recomendações com IA */}
-      {filteredCards.length > 0 && (
-        <Recommendations
-          type="hybrid"
-          limit={8}
-          title="Recomendadas para Você"
-        />
       )}
 
       <Snackbar

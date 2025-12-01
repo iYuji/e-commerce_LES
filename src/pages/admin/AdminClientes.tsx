@@ -35,8 +35,16 @@ import {
   Delete,
   Person,
 } from "@mui/icons-material";
-import { customerApi, CreateCustomerData } from "../../api/customerApi";
 import { Customer } from "../../types";
+import * as Store from "../../store/index";
+
+interface CreateCustomerData {
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  cpf: string;
+}
 
 const ITEMS_PER_PAGE = 10;
 
@@ -80,23 +88,36 @@ const AdminClientes: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, searchTerm]);
 
-  const loadCustomers = async () => {
+  const loadCustomers = () => {
     setLoading(true);
     try {
-      const result = await customerApi.getCustomers(
-        searchTerm || undefined,
-        currentPage,
-        ITEMS_PER_PAGE
+      let allCustomers = Store.getCustomers();
+
+      // Filtrar por termo de busca
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        allCustomers = allCustomers.filter(
+          (c) =>
+            c.name.toLowerCase().includes(term) ||
+            c.email.toLowerCase().includes(term) ||
+            c.phone?.toLowerCase().includes(term) ||
+            c.cpf?.toLowerCase().includes(term)
+        );
+      }
+
+      setTotalCustomers(allCustomers.length);
+      setTotalPages(Math.ceil(allCustomers.length / ITEMS_PER_PAGE));
+
+      // Paginar
+      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+      const paginatedCustomers = allCustomers.slice(
+        startIndex,
+        startIndex + ITEMS_PER_PAGE
       );
-      setCustomers(result.customers);
-      setTotalCustomers(result.total);
-      setTotalPages(result.totalPages);
+      setCustomers(paginatedCustomers);
     } catch (error) {
       console.error("Erro ao carregar clientes:", error);
-      showSnackbar(
-        "Erro ao carregar clientes. Verifique se o servidor está rodando.",
-        "error"
-      );
+      showSnackbar("Erro ao carregar clientes.", "error");
     } finally {
       setLoading(false);
     }
@@ -138,23 +159,40 @@ const AdminClientes: React.FC = () => {
     setOpenDialog(true);
   };
 
-  const handleSaveCustomer = async (values: CreateCustomerData) => {
+  const handleSaveCustomer = (values: CreateCustomerData) => {
     try {
       if (editingCustomer) {
-        await customerApi.updateCustomer(editingCustomer.id, values);
-        showSnackbar("Cliente atualizado com sucesso!", "success");
+        // Atualizar cliente existente
+        const customers = Store.getCustomers();
+        const index = customers.findIndex((c) => c.id === editingCustomer.id);
+        if (index !== -1) {
+          customers[index] = {
+            ...customers[index],
+            ...values,
+            updatedAt: new Date().toISOString(),
+          };
+          Store.writeStore(Store.STORE_KEYS.customers, customers);
+          showSnackbar("Cliente atualizado com sucesso!", "success");
+        }
       } else {
-        await customerApi.createCustomer(values);
+        // Criar novo cliente
+        const newCustomer: Customer = {
+          id: `customer_${Date.now()}`,
+          ...values,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        const customers = Store.getCustomers();
+        customers.push(newCustomer);
+        Store.writeStore(Store.STORE_KEYS.customers, customers);
+        showSnackbar("Cliente criado com sucesso!", "success");
       }
 
       setOpenDialog(false);
-      await loadCustomers();
+      loadCustomers();
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
-      showSnackbar(
-        error instanceof Error ? error.message : "Erro ao salvar cliente",
-        "error"
-      );
+      showSnackbar("Erro ao salvar cliente", "error");
     }
   };
 
@@ -163,37 +201,56 @@ const AdminClientes: React.FC = () => {
     setDeleteConfirmOpen(true);
   };
 
-  const confirmDeleteCustomer = async () => {
+  const confirmDeleteCustomer = () => {
     if (!customerToDelete) return;
 
     try {
-      await customerApi.deleteCustomer(customerToDelete);
+      const customers = Store.getCustomers();
+      const filteredCustomers = customers.filter(
+        (c) => c.id !== customerToDelete
+      );
+      Store.writeStore(Store.STORE_KEYS.customers, filteredCustomers);
       showSnackbar("Cliente deletado com sucesso!", "success");
       setDeleteConfirmOpen(false);
       setCustomerToDelete(null);
-      await loadCustomers();
+      loadCustomers();
     } catch (error) {
       console.error("Erro ao deletar cliente:", error);
-      showSnackbar(
-        error instanceof Error ? error.message : "Erro ao deletar cliente",
-        "error"
-      );
+      showSnackbar("Erro ao deletar cliente", "error");
     }
   };
 
-  const handleViewCustomer = async (customer: Customer) => {
+  const handleViewCustomer = (customer: Customer) => {
     setSelectedCustomer(customer);
     setDetailsOpen(true);
 
     try {
-      const stats = await customerApi.getCustomerStats(customer.id);
+      // Calcular estatísticas do cliente a partir do localStorage
+      const orders = Store.getOrders().filter(
+        (o) => o.customerId === customer.id
+      );
+      const stats = {
+        totalOrders: orders.length,
+        totalSpent: orders.reduce((sum, o) => sum + o.total, 0),
+        averageOrderValue:
+          orders.length > 0
+            ? orders.reduce((sum, o) => sum + o.total, 0) / orders.length
+            : 0,
+        lastOrderDate:
+          orders.length > 0
+            ? orders.sort(
+                (a, b) =>
+                  new Date(b.createdAt).getTime() -
+                  new Date(a.createdAt).getTime()
+              )[0].createdAt
+            : null,
+      };
       setCustomerStats(stats);
     } catch (error) {
       console.error("Erro ao carregar estatísticas do cliente:", error);
       setCustomerStats(null);
     }
   };
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
