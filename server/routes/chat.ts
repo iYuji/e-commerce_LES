@@ -165,7 +165,7 @@ JSON:`;
                 ? match[2]
                     .replace(/"/g, "")
                     .split(",")
-                    .filter((id) => id.trim())
+                    .filter((id: string) => id.trim())
                 : [],
             };
             console.log("✅ JSON extraído via regex");
