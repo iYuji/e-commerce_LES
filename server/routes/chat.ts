@@ -155,11 +155,18 @@ JSON:`;
           parsedResponse = JSON.parse(cleanText);
           console.log("✅ JSON parseado com sucesso");
         } catch (e) {
-          const match = cleanText.match(/\{"text":"([^"]+)","cardIds":\[([^\]]*)\]\}/);
+          const match = cleanText.match(
+            /\{"text":"([^"]+)","cardIds":\[([^\]]*)\]\}/
+          );
           if (match) {
             parsedResponse = {
               text: match[1],
-              cardIds: match[2] ? match[2].replace(/"/g, '').split(',').filter(id => id.trim()) : []
+              cardIds: match[2]
+                ? match[2]
+                    .replace(/"/g, "")
+                    .split(",")
+                    .filter((id) => id.trim())
+                : [],
             };
             console.log("✅ JSON extraído via regex");
           } else {
