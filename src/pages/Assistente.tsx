@@ -44,11 +44,13 @@ interface Message {
 const suggestedQuestions = [
   "Quais são as cartas mais raras disponíveis?",
   "Mostre-me cartas do tipo Fogo",
-  "Qual é a carta mais cara da loja?",
+  "Quais as cartas mais caras da loja?",
   "Preciso de cartas para iniciantes",
   "Quais cartas estão em promoção?",
-  "Como funcionam os cupons de desconto?",
+  "Me recomende cartas de pokémons populares",
 ];
+
+const CHAT_STORAGE_KEY = "chatHistory";
 
 const Assistente: React.FC = () => {
   const navigate = useNavigate();
@@ -57,10 +59,37 @@ const Assistente: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [cards] = useState<CardType[]>(Store.getCards());
 
+  // Carrega histórico do localStorage ao montar
   useEffect(() => {
-    // Mensagem de boas-vindas
+    const savedHistory = localStorage.getItem(CHAT_STORAGE_KEY);
+
+    if (savedHistory) {
+      try {
+        const parsed = JSON.parse(savedHistory);
+        // Converte timestamps de string para Date
+        const messagesWithDates = parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp),
+        }));
+        setMessages(messagesWithDates);
+      } catch (error) {
+        console.error("Erro ao carregar histórico do chat:", error);
+        initializeWelcomeMessage();
+      }
+    } else {
+      initializeWelcomeMessage();
+    }
+  }, []);
+
+  // Salva histórico no localStorage sempre que mensagens mudarem
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+    }
+  }, [messages]);
+
+  const initializeWelcomeMessage = () => {
     const welcomeMessage: Message = {
       id: "1",
       text: "Olá! Sou seu assistente de cartas colecionáveis. Posso ajudá-lo a encontrar cartas, explicar raridades, sugerir combinações e muito mais. Como posso ajudá-lo hoje?",
@@ -68,7 +97,7 @@ const Assistente: React.FC = () => {
       timestamp: new Date(),
     };
     setMessages([welcomeMessage]);
-  }, []);
+  };
 
   useEffect(() => {
     scrollToBottom();
@@ -76,340 +105,6 @@ const Assistente: React.FC = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Função antiga removida - agora usamos Gemini AI via API
-  // Mantida apenas para referência, mas não é mais usada
-  const _simulateAIResponse_DEPRECATED = (userMessage: string): Message => {
-    const lowerMessage = userMessage.toLowerCase();
-    let responseText = "";
-    let relatedCards: CardType[] = [];
-
-    // Gatilhos de busca (para nome de carta)
-    const searchTriggers = [
-      "procura",
-      "procurar",
-      "buscar",
-      "encontrar",
-      "mostrar",
-      "mostre",
-      "me mostra",
-      "me mostre",
-      "ver",
-    ];
-    const hasSearchIntent = searchTriggers.some((t) =>
-      lowerMessage.includes(t)
-    );
-
-    // Palavras que indicam que o usuário fala de raridade (não de nome)
-    const rarityWords = [
-      "comum",
-      "comuns",
-      "common",
-      "incomum",
-      "uncommon",
-      "rara",
-      "raras",
-      "rare",
-      "épica",
-      "epica",
-      "epic",
-      "lendária",
-      "lendaria",
-      "legendary",
-    ];
-    const talksAboutRarity = rarityWords.some((w) =>
-      lowerMessage.includes(w)
-    );
-
-    // ================= RARIDADE =================
-    if (
-      lowerMessage.includes("comum") || // pega "comum" e "comuns"
-      lowerMessage.includes("comuns") ||
-      lowerMessage.includes("common")
-    ) {
-      const commonCards = cards
-        .filter((card) => card.rarity.toLowerCase() === "common")
-        .slice(0, 12);
-      relatedCards = commonCards;
-      responseText =
-        commonCards.length > 0
-          ? "Estas são algumas cartas Comuns disponíveis na loja. Ótimas para começar ou completar o deck."
-          : "No momento não temos cartas Comuns em estoque.";
-    } else if (
-      lowerMessage.includes("incomum") ||
-      lowerMessage.includes("uncommon")
-    ) {
-      const uncommonCards = cards
-        .filter((card) => card.rarity.toLowerCase() === "uncommon")
-        .slice(0, 12);
-      relatedCards = uncommonCards;
-      responseText =
-        uncommonCards.length > 0
-          ? "Encontrei estas cartas Incomuns para você. Elas costumam ter efeitos interessantes e bom custo-benefício."
-          : "No momento não temos cartas Incomuns em estoque.";
-    } else if (
-      lowerMessage.includes("mais rara") ||
-      lowerMessage.includes("mais raras") ||
-      lowerMessage.includes("raras") ||
-      lowerMessage.includes("rara") ||
-      lowerMessage.includes("rare")
-    ) {
-      const rareCards = cards
-        .filter((card) => {
-          const r = card.rarity.toLowerCase();
-          return (
-            r === "rare" ||
-            r === "super rare" ||
-            r === "ultra rare" ||
-            r === "epic" ||
-            r === "legendary"
-          );
-        })
-        .slice(0, 12);
-      relatedCards = rareCards;
-      responseText =
-        rareCards.length > 0
-          ? "Aqui estão algumas das cartas mais raras da nossa coleção!"
-          : "No momento não temos cartas raras em estoque.";
-    } else if (
-      lowerMessage.includes("épica") ||
-      lowerMessage.includes("epica") ||
-      lowerMessage.includes("epic")
-    ) {
-      const epicCards = cards
-        .filter((card) => card.rarity.toLowerCase() === "epic")
-        .slice(0, 12);
-      relatedCards = epicCards;
-      responseText =
-        epicCards.length > 0
-          ? "Separei algumas cartas Épicas para você. Elas costumam ser bem valorizadas."
-          : "No momento não temos cartas Épicas em estoque.";
-    } else if (
-      lowerMessage.includes("lendária") ||
-      lowerMessage.includes("lendaria") ||
-      lowerMessage.includes("legendary")
-    ) {
-      const legendaryCards = cards
-        .filter((card) => card.rarity.toLowerCase() === "legendary")
-        .slice(0, 12);
-      relatedCards = legendaryCards;
-      responseText =
-        legendaryCards.length > 0
-          ? "Aqui estão algumas das cartas Lendárias mais raras da nossa coleção!"
-          : "No momento não temos cartas Lendárias em estoque.";
-    }
-
-    // =============== TIPOS (Fogo/Água/Elétrico) =================
-    else if (
-      lowerMessage.includes("tipo fogo") ||
-      lowerMessage.includes("tipo fire") ||
-      lowerMessage === "fogo" ||
-      lowerMessage === "fire" ||
-      lowerMessage.includes("cartas de fogo") ||
-      lowerMessage.includes("cartas fire")
-    ) {
-      const fireCards = cards
-        .filter((card) => card.type.toLowerCase().includes("fire"))
-        .slice(0, 12);
-      relatedCards = fireCards;
-      responseText =
-        fireCards.length > 0
-          ? `Encontrei ${fireCards.length} carta(s) do tipo Fogo.`
-          : "No momento não encontrei cartas do tipo Fogo em estoque.";
-    } else if (
-      lowerMessage.includes("tipo água") ||
-      lowerMessage.includes("tipo agua") ||
-      lowerMessage.includes("tipo water") ||
-      lowerMessage === "água" ||
-      lowerMessage === "agua" ||
-      lowerMessage === "water" ||
-      lowerMessage.includes("cartas de água") ||
-      lowerMessage.includes("cartas de agua") ||
-      lowerMessage.includes("cartas water")
-    ) {
-      const waterCards = cards
-        .filter((card) => card.type.toLowerCase().includes("water"))
-        .slice(0, 12);
-      relatedCards = waterCards;
-      responseText =
-        waterCards.length > 0
-          ? `Encontrei ${waterCards.length} carta(s) do tipo Água.`
-          : "No momento não encontrei cartas do tipo Água em estoque.";
-    } else if (
-      lowerMessage.includes("tipo elétrico") ||
-      lowerMessage.includes("tipo eletrico") ||
-      lowerMessage.includes("tipo electric") ||
-      lowerMessage === "elétrico" ||
-      lowerMessage === "eletrico" ||
-      lowerMessage === "electric"
-    ) {
-      const electricCards = cards
-        .filter((card) => card.type.toLowerCase().includes("electric"))
-        .slice(0, 12);
-      relatedCards = electricCards;
-      responseText =
-        electricCards.length > 0
-          ? `Encontrei ${electricCards.length} carta(s) do tipo Elétrico.`
-          : "No momento não encontrei cartas do tipo Elétrico em estoque.";
-    }
-
-    // =============== CARTA MAIS CARA =================
-    else if (
-      lowerMessage.includes("mais cara") ||
-      lowerMessage.includes("mais caro") ||
-      lowerMessage.includes("cara") ||
-      lowerMessage.includes("preço") ||
-      lowerMessage.includes("preco") ||
-      lowerMessage.includes("expensive")
-    ) {
-      const expensiveCards = [...cards]
-        .sort((a, b) => b.price - a.price)
-        .slice(0, 6);
-      relatedCards = expensiveCards;
-      responseText =
-        "Estas são as cartas mais valiosas da nossa coleção! O preço reflete a raridade e demanda no mercado.";
-    }
-
-    // =============== INICIANTES =================
-    else if (
-      lowerMessage.includes("iniciante") ||
-      lowerMessage.includes("beginner") ||
-      lowerMessage.includes("começ")
-    ) {
-      const beginnerCards = cards
-        .filter(
-          (card) =>
-            card.rarity.toLowerCase() === "common" ||
-            card.rarity.toLowerCase() === "uncommon"
-        )
-        .slice(0, 12);
-      relatedCards = beginnerCards;
-      responseText =
-        "Para iniciantes, recomendo começar com cartas Common e Uncommon. São mais acessíveis e perfeitas para aprender o jogo!";
-    }
-
-    // =============== CUPONS =================
-    else if (
-      lowerMessage.includes("cupom") ||
-      lowerMessage.includes("cupons") ||
-      lowerMessage.includes("coupon") ||
-      lowerMessage.includes("cupões") ||
-      lowerMessage.includes("cupoens") || // erro comum
-      lowerMessage.includes("cupom de desconto") ||
-      lowerMessage.includes("cupons de desconto")
-    ) {
-      responseText =
-        "Você pode usar cupons no carrinho de compras. Basta digitar o código no campo **“Cupom de desconto”** e clicar em aplicar.\n\nAlguns exemplos de cupons:\n• **WELCOME10** – 10% de desconto na primeira compra\n• **SAVE5** – R$ 5 de desconto em qualquer pedido\n• **LEGENDARY20** – 20% em cartas lendárias selecionadas\n\nCada cupom pode ter regras específicas (valor mínimo, validade, produtos elegíveis).";
-    }
-
-    // =============== PROMOÇÃO / DESCONTO =================
-    else if (
-      lowerMessage.includes("promoção") ||
-      lowerMessage.includes("promocao") ||
-      lowerMessage.includes("desconto") ||
-      lowerMessage.includes("oferta")
-    ) {
-      const promotionCards = cards
-        .filter((card) => card.price < 50)
-        .slice(0, 12);
-      relatedCards = promotionCards;
-      responseText =
-        promotionCards.length > 0
-          ? "Temos várias cartas com preços especiais! Aproveite estas ofertas enquanto o estoque durar."
-          : "No momento não há cartas em promoção.";
-    }
-
-    // =============== LISTAR TIPOS DISPONÍVEIS =================
-    else if (
-      lowerMessage.includes("tipo") ||
-      lowerMessage.includes("element")
-    ) {
-      const types = [...new Set(cards.map((card) => card.type))];
-      responseText = `Temos cartas dos seguintes tipos: ${types.join(
-        ", "
-      )}. Cada tipo tem suas próprias características e estratégias únicas. Sobre qual tipo você gostaria de saber mais?`;
-    }
-
-    // =============== ESTOQUE =================
-    else if (
-      lowerMessage.includes("estoque") ||
-      lowerMessage.includes("stock")
-    ) {
-      const inStockCards = cards.filter((card) => card.stock > 0);
-      responseText = `Temos ${inStockCards.length} cartas diferentes em estoque no momento. Posso ajudá-lo a encontrar algo específico?`;
-    }
-
-    // =============== BUSCA POR NOME =================
-    // Só entra aqui se tiver intenção de busca E não estiver falando de raridade
-    else if (hasSearchIntent && !talksAboutRarity) {
-      const words = lowerMessage.split(/\s+/);
-      const stopWords = [
-        "a",
-        "o",
-        "as",
-        "os",
-        "de",
-        "da",
-        "do",
-        "das",
-        "dos",
-        "uma",
-        "um",
-        "carta",
-        "cartas",
-        "pokemon",
-        "pokémon",
-        "procura",
-        "procurar",
-        "buscar",
-        "encontrar",
-        "mostrar",
-        "mostre",
-        "ver",
-        "quero",
-        "gostaria",
-        "me",
-        "para",
-        "tipo",
-      ];
-
-      const keywords = words.filter((w) => !stopWords.includes(w));
-      let searchTerm = keywords.join(" ").trim();
-      if (!searchTerm) {
-        searchTerm = lowerMessage.trim();
-      }
-
-      const matchedCards = cards.filter((card) =>
-        card.name.toLowerCase().includes(searchTerm)
-      );
-
-      relatedCards = matchedCards.slice(0, 6);
-
-      if (matchedCards.length > 0) {
-        responseText = `Encontrei ${matchedCards.length} carta(s) relacionada(s) a "${searchTerm}". Veja algumas opções abaixo:`;
-      } else {
-        responseText = `Não encontrei nenhuma carta com o nome relacionado a "${searchTerm}". Tente usar outro nome ou verificar a ortografia.`;
-      }
-    }
-
-    // =============== RESPOSTA GENÉRICA =================
-    else {
-      const randomCards = [...cards]
-        .sort(() => 0.5 - Math.random())
-        .slice(0, 2);
-      relatedCards = randomCards;
-      responseText =
-        "Interessante pergunta! Enquanto isso, que tal dar uma olhada nestas cartas populares? Se precisar de algo específico, posso ajudar com informações sobre raridades, tipos, preços ou recomendações personalizadas.";
-    }
-
-    return {
-      id: Date.now().toString(),
-      text: responseText,
-      sender: "assistant",
-      timestamp: new Date(),
-      cards: relatedCards,
-    };
   };
 
   const handleSendMessage = async () => {
@@ -436,7 +131,7 @@ const Assistente: React.FC = () => {
       const response = await chatApi.sendMessage(messageToSend, customerId);
 
       // Converte ChatCard para CardType
-      const cards: CardType[] = response.cards.map(card => ({
+      const cards: CardType[] = response.cards.map((card) => ({
         id: card.id,
         name: card.name,
         type: card.type,
@@ -458,89 +153,18 @@ const Assistente: React.FC = () => {
 
       setMessages((prev) => [...prev, aiResponse]);
     } catch (error) {
-      console.error('❌ Erro ao processar mensagem com Gemini:', error);
-      console.error('Detalhes do erro:', error);
-      
-      // Fallback inteligente que detecta raridades, tipos e nomes
-      const lowerMessage = messageToSend.toLowerCase();
-      let matchedCards: CardType[] = [];
-      let responseText = '';
+      console.error("❌ Erro ao chamar API Gemini:", error);
 
-      // Mapeamento de raridades
-      const rarityMap: { [key: string]: { words: string[], name: string } } = {
-        'common': { words: ['comum', 'common', 'comuns'], name: 'Comuns' },
-        'uncommon': { words: ['incomum', 'uncommon', 'incomuns'], name: 'Incomuns' },
-        'rare': { words: ['rara', 'rare', 'raras', 'raros'], name: 'Raras' },
-        'legendary': { words: ['lendária', 'lendaria', 'legendary', 'lendárias', 'lendarias', 'lendário', 'lendarios'], name: 'Lendárias' },
-        'mythic': { words: ['mítica', 'mitica', 'mythic', 'míticas', 'miticas'], name: 'Míticas' },
-        'epic': { words: ['épica', 'epica', 'epic', 'épicas', 'epicas'], name: 'Épicas' }
-      };
-
-      // Verifica se é pergunta sobre raridade
-      let foundRarity: string | null = null;
-      for (const [rarity, data] of Object.entries(rarityMap)) {
-        if (data.words.some(word => lowerMessage.includes(word))) {
-          foundRarity = rarity;
-          matchedCards = cards.filter(card => 
-            card.rarity.toLowerCase() === rarity
-          ).slice(0, 12);
-          responseText = matchedCards.length > 0
-            ? `Encontrei ${matchedCards.length} carta(s) ${data.name} disponíveis na loja! Estas são algumas opções:`
-            : `No momento não temos cartas ${data.name} em estoque.`;
-          break;
-        }
-      }
-
-      // Se não encontrou por raridade, tenta por tipo
-      if (!foundRarity) {
-        const typeMap: { [key: string]: { words: string[], name: string } } = {
-          'fire': { words: ['fogo', 'fire'], name: 'Fogo' },
-          'water': { words: ['água', 'agua', 'water'], name: 'Água' },
-          'electric': { words: ['elétrico', 'eletrico', 'electric'], name: 'Elétrico' },
-          'grass': { words: ['grama', 'grass', 'planta'], name: 'Grama' },
-        };
-
-        for (const [type, data] of Object.entries(typeMap)) {
-          if (data.words.some(word => lowerMessage.includes(word))) {
-            matchedCards = cards.filter(card => 
-              card.type.toLowerCase().includes(type)
-            ).slice(0, 12);
-            responseText = matchedCards.length > 0
-              ? `Encontrei ${matchedCards.length} carta(s) do tipo ${data.name}. Veja algumas opções:`
-              : `No momento não encontrei cartas do tipo ${data.name} em estoque.`;
-            break;
-          }
-        }
-      }
-
-      // Se ainda não encontrou, tenta buscar por nome
-      if (matchedCards.length === 0) {
-        matchedCards = cards.filter(card => 
-          card.name.toLowerCase().includes(lowerMessage.trim())
-        ).slice(0, 6);
-        
-        if (matchedCards.length > 0) {
-          responseText = `Encontrei ${matchedCards.length} carta(s) relacionada(s) a "${messageToSend}". Veja algumas opções abaixo:`;
-        }
-      }
-
-      // Se ainda não encontrou nada, mensagem genérica
-      if (matchedCards.length === 0 && !responseText) {
-        const randomCards = [...cards]
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 2);
-        matchedCards = randomCards;
-        responseText = "Desculpe, não consegui processar sua mensagem no momento. Enquanto isso, que tal dar uma olhada nestas cartas populares? Se precisar de algo específico, posso ajudar com informações sobre raridades, tipos, preços ou recomendações personalizadas.";
-      }
-      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: responseText,
+        text: `⚠️ Erro ao processar sua mensagem: ${
+          error instanceof Error ? error.message : "Erro desconhecido"
+        }. Verifique se o servidor backend está rodando na porta 3002.`,
         sender: "assistant",
         timestamp: new Date(),
-        cards: matchedCards,
+        cards: [],
       };
-      
+
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsTyping(false);
@@ -553,14 +177,14 @@ const Assistente: React.FC = () => {
   };
 
   const handleClearChat = () => {
-    setMessages([
-      {
-        id: Date.now().toString(),
-        text: "Chat limpo! Como posso ajudá-lo novamente?",
-        sender: "assistant",
-        timestamp: new Date(),
-      },
-    ]);
+    const resetMessage: Message = {
+      id: Date.now().toString(),
+      text: "Chat limpo! Como posso ajudá-lo novamente?",
+      sender: "assistant",
+      timestamp: new Date(),
+    };
+    setMessages([resetMessage]);
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify([resetMessage]));
   };
 
   const handleCopyMessage = (text: string) => {
@@ -747,9 +371,7 @@ const Assistente: React.FC = () => {
                             </IconButton>
                             <IconButton
                               size="small"
-                              onClick={() =>
-                                handleFeedback(message.id, false)
-                              }
+                              onClick={() => handleFeedback(message.id, false)}
                               color={
                                 message.helpful === false ? "error" : "default"
                               }

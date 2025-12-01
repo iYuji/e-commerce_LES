@@ -1,0 +1,202 @@
+[
+  {
+    "id": "1",
+    "name": "Pikachu",
+    "type": "Electric",
+    "rarity": "Common",
+    "price": 45.99,
+    "stock": 25,
+    "description": "O adorável rato elétrico, mascote dos Pokémon",
+    "image": "https://images.pokemontcg.io/xy1/42_hires.png"
+  },
+  {
+    "id": "2",
+    "name": "Charizard-EX",
+    "type": "Fire",
+    "rarity": "Ultra Rare",
+    "price": 249.99,
+    "stock": 3,
+    "description": "O lendário dragão de fogo em sua forma EX",
+    "image": "https://img.mypcards.com/img/2/1865/pokemon_obf_125_197/pokemon_obf_125_197_pt.jpg"
+  },
+  {
+    "id": "3",
+    "name": "Blastoise",
+    "type": "Water",
+    "rarity": "Rare",
+    "price": 165.99,
+    "stock": 8,
+    "description": "A tartaruga gigante com canhões d'água poderosos",
+    "image": "https://images.pokemontcg.io/xy1/29_hires.png"
+  },
+  {
+    "id": "4",
+    "name": "Venusaur",
+    "type": "Grass",
+    "rarity": "Rare",
+    "price": 158.99,
+    "stock": 10,
+    "description": "O Pokémon planta com flor venenosa gigante",
+    "image": "https://images.pokemontcg.io/xy1/1_hires.png"
+  },
+  {
+    "id": "5",
+    "name": "Mewtwo-EX",
+    "type": "Psychic",
+    "rarity": "Ultra Rare",
+    "price": 299.99,
+    "stock": 2,
+    "description": "O Pokémon psíquico mais poderoso em forma EX",
+    "image": "https://images.pokemontcg.io/xy8/158_hires.png"
+  },
+  {
+    "id": "6",
+    "name": "M Rayquaza-EX",
+    "type": "Dragon",
+    "rarity": "Ultra Rare",
+    "price": 275.99,
+    "stock": 4,
+    "description": "Mega Rayquaza, o dragão dos céus em forma mega",
+    "image": "https://images.pokemontcg.io/xy6/75_hires.png"
+  },
+  {
+    "id": "7",
+    "name": "Gyarados",
+    "type": "Water",
+    "rarity": "Rare",
+    "price": 89.99,
+    "stock": 12,
+    "description": "A feroz serpente marinha com fúria devastadora",
+    "image": "https://repositorio.sbrauble.com/arquivos/in/pokemon_bkp/cd/411/47s_130.jpg"
+  },
+  {
+    "id": "8",
+    "name": "Gengar",
+    "type": "Ghost",
+    "rarity": "Rare",
+    "price": 95.99,
+    "stock": 11,
+    "description": "O Pokémon fantasma que se esconde nas sombras",
+    "image": "https://images.pokemontcg.io/xy4/35_hires.png"
+  },
+  {
+    "id": "9",
+    "name": "Lucario",
+    "type": "Fighting",
+    "rarity": "Rare",
+    "price": 78.99,
+    "stock": 15,
+    "description": "O mestre da aura com habilidades de combate superiores",
+    "image": "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SM5/SM5_PT-BR_67.png"
+  },
+  {
+    "id": "10",
+    "name": "Umbreon",
+    "type": "Dark",
+    "rarity": "Rare",
+    "price": 92.99,
+    "stock": 13,
+    "description": "A evolução noturna de Eevee com anéis luminosos",
+    "image": "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SV03/SV03_PT-BR_130.png"
+  },
+  {
+    "id": "11",
+    "name": "Snorlax",
+    "type": "Normal",
+    "rarity": "Uncommon",
+    "price": 52.99,
+    "stock": 20,
+    "description": "O gigante dorminhoco que bloqueia estradas",
+    "image": "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SV3PT5/SV3PT5_PT-BR_143.png"
+  },
+  {
+    "id": "12",
+    "name": "Dragonite",
+    "type": "Dragon",
+    "rarity": "Ultra Rare",
+    "price": 145.99,
+    "stock": 7,
+    "description": "O gentil dragão",
+    "image": "https://images.pokemontcg.io/xy6/52_hires.png"
+  },
+  {
+    "id": "13",
+    "name": "Alakazam",
+    "type": "Psychic",
+    "rarity": "Rare",
+    "price": 82.99,
+    "stock": 14,
+    "description": "O gênio psíquico com QI extremamente alto",
+    "image": "https://images.pokemontcg.io/xy10/25_hires.png"
+  },
+  {
+    "id": "14",
+    "name": "Machamp",
+    "type": "Fighting",
+    "rarity": "Uncommon",
+    "price": 65.99,
+    "stock": 16,
+    "description": "O super lutador com quatro braços musculosos",
+    "image": "https://img.mypcards.com/img/2/1250/pokemon_swshp_swsh053/pokemon_swshp_swsh053_pt.jpg"
+  },
+  {
+    "id": "15",
+    "name": "Lapras-GX",
+    "type": "Water",
+    "rarity": "Ultra Rare",
+    "price": 88.99,
+    "stock": 12,
+    "description": "O gentil Pokémon aquático em sua forma GX",
+    "image": "https://images.pokemontcg.io/sm1/35_hires.png"
+  },
+  {
+    "id": "16",
+    "name": "Eevee V",
+    "type": "Normal",
+    "rarity": "Common",
+    "price": 38.99,
+    "stock": 30,
+    "description": "O Pokémon com DNA instável e múltiplas evoluções",
+    "image": "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SWSHP/SWSHP_PT-BR_SWSH065.png"
+  },
+  {
+    "id": "17",
+    "name": "Zapdos",
+    "type": "Electric",
+    "rarity": "Rare",
+    "price": 125.99,
+    "stock": 6,
+    "description": "O pássaro lendário do trovão e da eletricidade",
+    "image": "https://cdn.awsli.com.br/800x800/792/792808/produto/189905268/zapdos-do-rev-rakvvhnui8.png"
+  },
+  {
+    "id": "18",
+    "name": "Articuno",
+    "type": "Water",
+    "rarity": "Rare",
+    "price": 122.99,
+    "stock": 6,
+    "description": "O pássaro lendário do gelo que congela o ar",
+    "image": "https://img.mypcards.com/img/2/2238/pokemon_jtg_032_159/pokemon_jtg_032_159_pt.jpg"
+  },
+  {
+    "id": "19",
+    "name": "Moltres",
+    "type": "Fire",
+    "rarity": "Rare",
+    "price": 124.99,
+    "stock": 6,
+    "description": "O pássaro lendário do fogo com chamas eternas",
+    "image": "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SV3PT5/SV3PT5_PT-BR_146.png"
+  },
+  {
+    "id": "20",
+    "name": "Mew",
+    "type": "Psychic",
+    "rarity": "Ultra Rare",
+    "price": 285.99,
+    "stock": 3,
+    "description": "O Pokémon ancestral raro com DNA de todos os Pokémon",
+    "image": "https://assets.pokemon.com/static-assets/content-assets/cms2-pt-br/img/cards/web/SM10/SM10_PT-BR_76.png"
+  }
+]
