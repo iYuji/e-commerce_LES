@@ -92,7 +92,6 @@ const Trocas: React.FC = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  // Formulário de nova troca
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [itemReasons, setItemReasons] = useState<{ [key: string]: string }>({});
   const [itemConditions, setItemConditions] = useState<{
@@ -110,14 +109,12 @@ const Trocas: React.FC = () => {
       const currentCustomer = session.user as Customer;
       setCustomer(currentCustomer);
 
-      // Carregar pedidos entregues (elegíveis para troca)
       const customerOrders = Store.getOrdersByCustomer(currentCustomer.id);
       const deliveredOrders = customerOrders.filter(
         (order) => order.status === "delivered" || order.status === "shipped"
       );
       setOrders(deliveredOrders);
 
-      // Carregar solicitações de troca
       loadExchanges(currentCustomer.id);
     }
   };
@@ -162,13 +159,11 @@ const Trocas: React.FC = () => {
     try {
       setError("");
 
-      // Validações
       if (selectedItems.length === 0) {
         setError("Selecione pelo menos um produto para trocar");
         return;
       }
 
-      // Verificar se todos os itens selecionados têm motivo e condição
       for (const itemId of selectedItems) {
         if (!itemReasons[itemId]) {
           setError(
@@ -186,7 +181,6 @@ const Trocas: React.FC = () => {
 
       if (!selectedOrder) return;
 
-      // Criar itens de troca
       const exchangeItems: ExchangeItem[] = selectedItems.map((itemId) => {
         const itemIndex = parseInt(itemId.split("_")[1]);
         const orderItem = selectedOrder.items[itemIndex];
@@ -201,19 +195,17 @@ const Trocas: React.FC = () => {
         };
       });
 
-      // Calcular valor do cupom (soma dos itens)
       const couponValue = exchangeItems.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
       );
 
-      // Criar solicitação de troca
       const newExchange: ExchangeRequest = {
         id: `EX${Date.now()}`,
         orderId: selectedOrder.id,
         customerId: customer?.id || "",
         items: exchangeItems,
-        reason: itemReasons[selectedItems[0]], // Motivo principal
+        reason: itemReasons[selectedItems[0]],
         status: "Aguardando Aprovação",
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -221,13 +213,11 @@ const Trocas: React.FC = () => {
         notes: additionalNotes,
       };
 
-      // Salvar no localStorage
       const stored = localStorage.getItem("exchange_requests");
       const allExchanges: ExchangeRequest[] = stored ? JSON.parse(stored) : [];
       allExchanges.push(newExchange);
       localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
 
-      // Atualizar lista
       loadExchanges(customer?.id || "");
 
       setSuccess(

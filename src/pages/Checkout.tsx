@@ -225,6 +225,8 @@ const Checkout: React.FC = () => {
           return false;
         }
 
+        // RN0034: Validar valor mínimo de R$ 10,00 por cartão
+        // RN0035: Exceto quando usa cupons, aí pode ser menor
         const minimumPerCard = discountAmount > 0 ? 0 : 10.0;
 
         for (const card of selectedCards) {
@@ -430,16 +432,11 @@ const Checkout: React.FC = () => {
               cardNumber: last4Digits,
               cardName: paymentInfo.cardName || "",
               expiryDate: paymentInfo.expiryDate || "",
-              brand: mapCardBrand(detectCardBrand(paymentInfo.cardNumber)),
+              brand: detectCardBrand(paymentInfo.cardNumber),
               isDefault: savedCards.length === 0,
             };
 
-            const allCards: CreditCardType[] = Store.readStore(
-              "creditCards",
-              []
-            );
-            allCards.push(newCard);
-            Store.writeStore("creditCards", allCards);
+            Store.addCreditCard(newCard);
             console.log("✅ Novo cartão salvo no perfil:", newCard);
           }
         } else {
@@ -529,42 +526,20 @@ const Checkout: React.FC = () => {
 
   /**
    * Detecta a bandeira do cartão baseado no número
+   * Retorna apenas: "visa" | "mastercard" | "elo" | "amex"
    */
-  const detectCardBrand = (cardNumber: string): string => {
+  const detectCardBrand = (
+    cardNumber: string
+  ): "visa" | "mastercard" | "elo" | "amex" => {
     const number = cardNumber.replace(/\s/g, "");
 
-    if (/^4/.test(number)) return "Visa";
-    if (/^5[1-5]/.test(number)) return "Mastercard";
-    if (/^3[47]/.test(number)) return "American Express";
-    if (/^6(?:011|5)/.test(number)) return "Discover";
-    if (/^35/.test(number)) return "JCB";
-    if (/^(?:2131|1800|35)/.test(number)) return "JCB";
-    if (/^3(?:0[0-5]|[68])/.test(number)) return "Diners Club";
-    if (/^(5018|5020|5038|6304|6759|676[1-3])/.test(number)) return "Maestro";
-    if (/^(606282|3841)/.test(number)) return "Hipercard";
-    if (/^63[7-9]/.test(number)) return "Elo";
+    if (/^4/.test(number)) return "visa";
+    if (/^5[1-5]/.test(number)) return "mastercard";
+    if (/^3[47]/.test(number)) return "amex";
+    if (/^63[7-9]/.test(number)) return "elo";
 
-    return "Outro";
-  };
-
-  /**
-   * Mapeia a bandeira detectada para o tipo permitido
-   */
-  const mapCardBrand = (
-    brand: string
-  ): "visa" | "mastercard" | "elo" | "amex" => {
-    switch (brand.toLowerCase()) {
-      case "visa":
-        return "visa";
-      case "mastercard":
-        return "mastercard";
-      case "elo":
-        return "elo";
-      case "american express":
-        return "amex";
-      default:
-        return "visa"; // fallback padrão
-    }
+    // Default fallback
+    return "visa";
   };
 
   const formatCPF = (value: string) => {
@@ -867,9 +842,12 @@ const Checkout: React.FC = () => {
                   Selecione um ou mais cartões e defina o valor para cada um:
                 </Typography>
                 <Alert severity="info" sx={{ mb: 2 }}>
+                  <strong>RN0034:</strong> Valor mínimo de R$ 10,00 por cartão
                   {appliedCoupons.length > 0 && (
                     <>
                       <br />
+                      <strong>RN0035:</strong> Com cupons aplicados, valores
+                      menores são permitidos
                     </>
                   )}
                 </Alert>

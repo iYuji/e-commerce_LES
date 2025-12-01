@@ -68,40 +68,27 @@ const AdminVendas: React.FC = () => {
   const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // NOVO: Estado para armazenar os clientes
-  // Isso é essencial para podermos buscar o nome do cliente pelo ID
   const [customers, setCustomers] = useState<Customer[]>([]);
 
-  // Estados para os filtros de busca
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "">("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Estados para controle dos diálogos
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [editStatusOpen, setEditStatusOpen] = useState(false);
   const [newStatus, setNewStatus] = useState<OrderStatus>("pending");
 
-  // Estado para controlar expansão de linhas na tabela
   const [expandedRow, setExpandedRow] = useState<string | null>(null);
 
-  // Estado para mensagens de feedback ao usuário
   const [alert, setAlert] = useState<{
     show: boolean;
     message: string;
     severity: "success" | "error" | "info";
   }>({ show: false, message: "", severity: "info" });
 
-  // ============================================================================
-  // EFEITO DE CARREGAMENTO INICIAL
-  // Este useEffect executa quando o componente é montado pela primeira vez
-  // ============================================================================
-
   useEffect(() => {
     loadOrders();
 
-    // Listener para atualizar automaticamente quando houver novos pedidos
-    // Este evento é disparado quando um novo pedido é criado no checkout
     const handleOrdersUpdate = () => {
       console.log("📦 Pedidos atualizados, recarregando lista...");
       loadOrders();
@@ -109,40 +96,23 @@ const AdminVendas: React.FC = () => {
 
     window.addEventListener("orders:updated", handleOrdersUpdate);
 
-    // Cleanup: remove o listener quando o componente é desmontado
-    // Isso previne memory leaks e múltiplos listeners acumulados
     return () => {
       window.removeEventListener("orders:updated", handleOrdersUpdate);
     };
   }, []);
 
-  // ============================================================================
-  // EFEITO DE APLICAÇÃO DE FILTROS
-  // Sempre que os pedidos ou filtros mudarem, reaplica a filtragem
-  // ============================================================================
-
   useEffect(() => {
     applyFilters();
   }, [orders, statusFilter, searchTerm]);
-
-  // ============================================================================
-  // FUNÇÃO DE CARREGAMENTO PRINCIPAL
-  // Esta função busca os pedidos do Store e os ordena com os mais novos primeiro
-  // AGORA TAMBÉM CARREGA OS CLIENTES para podermos exibir os nomes
-  // ============================================================================
 
   const loadOrders = async () => {
     setLoading(true);
 
     try {
-      // Simula um pequeno delay para dar feedback visual ao usuário
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Busca todos os pedidos do Store (localStorage)
       const allOrders = Store.getOrders();
 
-      // IMPORTANTE: Carrega também todos os clientes do sistema
-      // Precisamos deles para poder converter customerId em nome do cliente
       const allCustomers = Store.getCustomers();
       setCustomers(allCustomers);
 
@@ -150,19 +120,12 @@ const AdminVendas: React.FC = () => {
         `📋 ${allCustomers.length} clientes carregados para referência`
       );
 
-      // Cria uma cópia do array de pedidos para não modificar o original
       const ordersToSort = [...allOrders];
 
-      // ORDENAÇÃO REVERSA: Pedidos mais novos aparecem primeiro!
-      // Isso é muito importante para a usabilidade do admin
-      // Os pedidos mais recentes geralmente precisam de atenção imediata
       ordersToSort.sort((a, b) => {
         const dateA = new Date(a.createdAt).getTime();
         const dateB = new Date(b.createdAt).getTime();
 
-        // Subtração invertida: dateB - dateA
-        // Se B é mais recente (número maior em milissegundos), resultado é positivo
-        // Isso coloca B antes de A na lista ordenada
         return dateB - dateA;
       });
 
@@ -180,81 +143,37 @@ const AdminVendas: React.FC = () => {
     }
   };
 
-  // ============================================================================
-  // NOVA FUNÇÃO: Busca o nome do cliente pelo ID
-  // Esta é a função chave que resolve o problema do nome do cliente!
-  // ============================================================================
-
-  /**
-   * Busca e retorna o nome de um cliente baseado no seu ID
-   *
-   * Como funciona:
-   * 1. Recebe o customerId (ex: "customer_1761578700457")
-   * 2. Procura esse ID na lista de clientes carregada
-   * 3. Se encontrar, retorna o nome completo do cliente
-   * 4. Se não encontrar, retorna uma versão legível do ID
-   *
-   * Por que fazemos isso?
-   * - Os pedidos guardam apenas o ID do cliente, não todos os dados
-   * - Isso evita duplicação de informações
-   * - Garante que sempre mostramos dados atualizados do cliente
-   * - Se o cliente mudar o nome, a mudança aparece em todos os pedidos
-   */
   const getCustomerName = (customerId: string): string => {
-    // Procura o cliente na lista de clientes carregada
     const customer = customers.find((c) => c.id === customerId);
 
     if (customer) {
-      // Se encontrou o cliente, retorna o nome completo dele
       return customer.name;
     }
 
-    // Se não encontrou (caso raro, mas pode acontecer se o cliente foi deletado)
-    // Retorna uma versão encurtada e legível do ID
-    // Pega apenas os últimos 6 caracteres para ficar mais compacto
     return `Cliente #${customerId.slice(-6)}`;
   };
 
-  // ============================================================================
-  // FUNÇÃO DE APLICAÇÃO DE FILTROS
-  // Filtra a lista de pedidos baseado nos critérios selecionados pelo usuário
-  // ============================================================================
-
   const applyFilters = () => {
-    // Começa com todos os pedidos já ordenados
     let filtered = [...orders];
 
-    // Aplica filtro por status se algum foi selecionado
     if (statusFilter) {
       filtered = filtered.filter((order) => order.status === statusFilter);
     }
 
-    // Aplica filtro por termo de busca
-    // Busca tanto no ID do pedido quanto no nome do cliente
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter((order) => {
-        // Busca no ID do pedido
         const matchesOrderId = order.id.toLowerCase().includes(searchLower);
 
-        // NOVO: Busca também no nome do cliente
-        // Isso permite que o admin procure por "João" e encontre todos os pedidos do João
         const customerName = getCustomerName(order.customerId).toLowerCase();
         const matchesCustomerName = customerName.includes(searchLower);
 
-        // Retorna true se encontrou em qualquer um dos dois
         return matchesOrderId || matchesCustomerName;
       });
     }
 
-    // A ordenação reversa (mais novos primeiro) é mantida automaticamente
-    // porque já ordenamos no loadOrders e o filter não altera a ordem
     setFilteredOrders(filtered);
   };
-
-  // ============================================================================
-  // FUNÇÕES DE CONTROLE DE DIÁLOGOS
-  // ============================================================================
 
   const handleViewDetails = (order: Order) => {
     setSelectedOrder(order);
@@ -280,7 +199,6 @@ const AdminVendas: React.FC = () => {
       setEditStatusOpen(false);
       loadOrders();
 
-      // Notifica outros componentes sobre a mudança
       window.dispatchEvent(new CustomEvent("orders:updated"));
     } else {
       showAlert("Erro ao atualizar status do pedido", "error");
@@ -330,10 +248,6 @@ const AdminVendas: React.FC = () => {
     setSearchTerm("");
   };
 
-  // ============================================================================
-  // FUNÇÕES AUXILIARES
-  // ============================================================================
-
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
       case "delivered":
@@ -357,10 +271,6 @@ const AdminVendas: React.FC = () => {
     return orders.filter((order) => order.status === status).length;
   };
 
-  // ============================================================================
-  // RENDERIZAÇÃO - LOADING STATE
-  // ============================================================================
-
   if (loading) {
     return (
       <Box sx={{ p: 3 }}>
@@ -374,13 +284,8 @@ const AdminVendas: React.FC = () => {
     );
   }
 
-  // ============================================================================
-  // RENDERIZAÇÃO PRINCIPAL
-  // ============================================================================
-
   return (
     <Box>
-      {/* Header com título e botão de atualização */}
       <Box
         sx={{
           display: "flex",
@@ -583,7 +488,7 @@ const AdminVendas: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                          {order.items?.length || 0} item(s)
+                            {order.items?.length || 0} item(s)
                           </Typography>
                         </TableCell>
                         <TableCell>

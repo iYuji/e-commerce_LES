@@ -52,7 +52,6 @@ const AdminCartas: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState("");
   const [rarityFilter, setRarityFilter] = useState("");
 
-  // Formulário
   const [formData, setFormData] = useState<Partial<CardType>>({
     name: "",
     type: "",
@@ -137,13 +136,11 @@ const AdminCartas: React.FC = () => {
     const updatedCards = [...cards];
 
     if (editingCard) {
-      // Editar carta existente
       const index = updatedCards.findIndex((c) => c.id === editingCard.id);
       if (index >= 0) {
         updatedCards[index] = { ...editingCard, ...formData } as CardType;
       }
     } else {
-      // Adicionar nova carta
       const newCard: CardType = {
         id: Date.now().toString(),
         name: formData.name!,

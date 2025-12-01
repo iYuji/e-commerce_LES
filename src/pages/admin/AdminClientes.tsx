@@ -56,14 +56,12 @@ const AdminClientes: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Estados para detalhes do cliente
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null
   );
   const [customerStats, setCustomerStats] = useState<any>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  // Estados do CRUD
   const [openDialog, setOpenDialog] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -74,7 +72,6 @@ const AdminClientes: React.FC = () => {
     severity: "success" as "success" | "error",
   });
 
-  // Form state (simple controlled inputs)
   const [formValues, setFormValues] = useState<CreateCustomerData>({
     name: "",
     email: "",
@@ -85,7 +82,6 @@ const AdminClientes: React.FC = () => {
 
   useEffect(() => {
     loadCustomers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, searchTerm]);
 
   const loadCustomers = () => {
@@ -93,7 +89,6 @@ const AdminClientes: React.FC = () => {
     try {
       let allCustomers = Store.getCustomers();
 
-      // Filtrar por termo de busca
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
         allCustomers = allCustomers.filter(
@@ -108,7 +103,6 @@ const AdminClientes: React.FC = () => {
       setTotalCustomers(allCustomers.length);
       setTotalPages(Math.ceil(allCustomers.length / ITEMS_PER_PAGE));
 
-      // Paginar
       const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
       const paginatedCustomers = allCustomers.slice(
         startIndex,
@@ -162,25 +156,21 @@ const AdminClientes: React.FC = () => {
   const handleSaveCustomer = (values: CreateCustomerData) => {
     try {
       if (editingCustomer) {
-        // Atualizar cliente existente
         const customers = Store.getCustomers();
         const index = customers.findIndex((c) => c.id === editingCustomer.id);
         if (index !== -1) {
           customers[index] = {
             ...customers[index],
             ...values,
-            updatedAt: new Date().toISOString(),
           };
           Store.writeStore(Store.STORE_KEYS.customers, customers);
           showSnackbar("Cliente atualizado com sucesso!", "success");
         }
       } else {
-        // Criar novo cliente
         const newCustomer: Customer = {
           id: `customer_${Date.now()}`,
           ...values,
           createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
         };
         const customers = Store.getCustomers();
         customers.push(newCustomer);
@@ -225,7 +215,6 @@ const AdminClientes: React.FC = () => {
     setDetailsOpen(true);
 
     try {
-      // Calcular estatísticas do cliente a partir do localStorage
       const orders = Store.getOrders().filter(
         (o) => o.customerId === customer.id
       );

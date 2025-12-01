@@ -119,7 +119,6 @@ const MeusPedidos: React.FC = () => {
   const [dateFilter, setDateFilter] = useState("");
   const [activeTab, setActiveTab] = useState(0);
 
-  // Estados para o sistema de trocas/devoluções
   const [exchangeDialogOpen, setExchangeDialogOpen] = useState(false);
   const [exchangeStep, setExchangeStep] = useState(0);
   const [exchangeItems, setExchangeItems] = useState<ExchangeItemSelection[]>(
@@ -127,7 +126,6 @@ const MeusPedidos: React.FC = () => {
   );
   const [exchangeNotes, setExchangeNotes] = useState("");
 
-  // NOVO: Tipo de solicitação (troca ou devolução)
   const [requestType, setRequestType] = useState<"exchange" | "refund">(
     "exchange"
   );
@@ -138,7 +136,6 @@ const MeusPedidos: React.FC = () => {
     severity: "success" as "success" | "error" | "info",
   });
 
-  // NOVO: Estado para armazenar solicitações de troca/devolução
   const [exchangeRequests, setExchangeRequests] = useState<any[]>([]);
 
   useEffect(() => {
@@ -192,7 +189,6 @@ const MeusPedidos: React.FC = () => {
     }
   };
 
-  // NOVA FUNÇÃO: Carrega solicitações de troca/devolução
   const loadExchangeRequests = () => {
     const session = Store.getSession();
     const customerId = session?.user?.id;
@@ -209,7 +205,6 @@ const MeusPedidos: React.FC = () => {
     }
   };
 
-  // NOVA FUNÇÃO: Verifica se um pedido tem troca/devolução em andamento
   const getOrderExchangeStatus = (orderId: string) => {
     const request = exchangeRequests.find(
       (req) =>
@@ -309,7 +304,7 @@ const MeusPedidos: React.FC = () => {
     setExchangeItems(items);
     setExchangeNotes("");
     setExchangeStep(0);
-    setRequestType("exchange"); // Começa com troca por padrão
+    setRequestType("exchange");
     setSelectedOrder(order);
     setExchangeDialogOpen(true);
   };
@@ -387,7 +382,6 @@ const MeusPedidos: React.FC = () => {
       id: `exchange_${Date.now()}`,
       orderId: selectedOrder.id,
       customerId: selectedOrder.customerId,
-      // NOVO: Adiciona o tipo de solicitação
       type: requestType,
       items: selectedItems.map((item) => ({
         productId: item.productId,
@@ -602,7 +596,6 @@ const MeusPedidos: React.FC = () => {
       ) : (
         <Grid container spacing={3}>
           {filteredOrders.map((order) => {
-            // NOVO: Verifica se há troca/devolução em andamento
             const exchangeStatus = getOrderExchangeStatus(order.id);
 
             return (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   AppBar,
   Toolbar,
@@ -10,17 +10,11 @@ import {
   Box,
   Container,
 } from "@mui/material";
-import {
-  AccountCircle,
-  AdminPanelSettings,
-  LightMode,
-  DarkMode,
-} from "@mui/icons-material";
+import { AccountCircle, AdminPanelSettings } from "@mui/icons-material";
 import { ThemeProvider } from "@mui/material/styles";
 import CssBaseline from "@mui/material/CssBaseline";
 import { useNavigate } from "react-router-dom";
 import { getAppTheme } from "../theme/theme";
-import * as Store from "../store/index";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -83,7 +77,7 @@ export default function Layout({ children }: LayoutProps) {
             <Button color="inherit" onClick={() => navigate("/assistente")}>
               Assistente
             </Button>
-            
+
             <IconButton
               size="large"
               edge="end"

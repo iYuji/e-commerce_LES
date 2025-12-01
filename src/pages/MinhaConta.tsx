@@ -74,14 +74,12 @@ const MinhaConta: React.FC = () => {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
-  // Formulário de dados pessoais
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
   });
 
-  // Diálogo de alteração de senha
   const [passwordDialog, setPasswordDialog] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
@@ -94,7 +92,6 @@ const MinhaConta: React.FC = () => {
     confirmPassword: "",
   });
 
-  // Carregar dados do usuário
   useEffect(() => {
     loadCustomerData();
   }, []);
@@ -140,7 +137,6 @@ const MinhaConta: React.FC = () => {
       setError("");
       setSuccess("");
 
-      // Validações
       if (!formData.name.trim()) {
         setError("Nome é obrigatório");
         return;
@@ -151,10 +147,8 @@ const MinhaConta: React.FC = () => {
         return;
       }
 
-      // Simular salvamento
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Atualizar dados no Store
       const customers = Store.getCustomers();
       const customerIndex = customers.findIndex((c) => c.id === customer?.id);
 
@@ -168,7 +162,6 @@ const MinhaConta: React.FC = () => {
 
         Store.writeStore(Store.STORE_KEYS.customers, customers);
 
-        // Atualizar sessão
         Store.setSession({
           userId: customers[customerIndex].id,
           user: customers[customerIndex],
@@ -190,7 +183,6 @@ const MinhaConta: React.FC = () => {
       setLoading(true);
       setError("");
 
-      // Validações
       if (
         !passwordForm.currentPassword ||
         !passwordForm.newPassword ||
@@ -210,7 +202,6 @@ const MinhaConta: React.FC = () => {
         return;
       }
 
-      // Verificar senha atual
       const passwordStore = JSON.parse(
         localStorage.getItem("customer_passwords") || "{}"
       );
@@ -219,10 +210,8 @@ const MinhaConta: React.FC = () => {
         return;
       }
 
-      // Simular salvamento
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Atualizar senha
       passwordStore[customer?.id || ""] = passwordForm.newPassword;
       localStorage.setItem("customer_passwords", JSON.stringify(passwordStore));
 
@@ -243,7 +232,7 @@ const MinhaConta: React.FC = () => {
   const getRecentOrders = () => {
     if (!customer) return [];
     const orders = Store.getOrdersByCustomer(customer.id);
-    return orders.slice(0, 5); // Últimos 5 pedidos
+    return orders.slice(0, 5);
   };
 
   const getInitials = (name: string) => {

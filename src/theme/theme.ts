@@ -108,10 +108,8 @@ export const lightTheme = createTheme({
   },
 });
 
-// Função para obter o tema baseado na configuração
 export const getAppTheme = (themeMode: "light" | "dark") => {
   return themeMode === "dark" ? darkTheme : lightTheme;
 };
 
-// Manter compatibilidade com código existente
 export const theme = darkTheme;

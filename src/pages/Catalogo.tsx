@@ -53,7 +53,6 @@ const Catalogo: React.FC = () => {
   const [snackbarMessage, setSnackbarMessage] = useState("");
 
   useEffect(() => {
-    // Limpar cartas antigas e recriar com novas URLs
     localStorage.removeItem("cards");
     Store.ensureSeed();
 
@@ -61,7 +60,6 @@ const Catalogo: React.FC = () => {
     setCards(loadedCards);
     setFilteredCards(loadedCards);
 
-    // Calcular range de preços automático
     if (loadedCards.length > 0) {
       const prices = loadedCards.map((card: CardType) => card.price);
       const minPrice = Math.min(...prices);
@@ -72,7 +70,6 @@ const Catalogo: React.FC = () => {
   useEffect(() => {
     let filtered = cards;
 
-    // Filtro por texto
     if (searchTerm) {
       filtered = filtered.filter(
         (card: CardType) =>
@@ -81,30 +78,25 @@ const Catalogo: React.FC = () => {
       );
     }
 
-    // Filtro por tipo
     if (typeFilter) {
       filtered = filtered.filter((card: CardType) => card.type === typeFilter);
     }
 
-    // Filtro por raridade
     if (rarityFilter) {
       filtered = filtered.filter(
         (card: CardType) => card.rarity === rarityFilter
       );
     }
 
-    // Filtro por preço
     filtered = filtered.filter(
       (card: CardType) =>
         card.price >= priceRange[0] && card.price <= priceRange[1]
     );
 
-    // Filtro por estoque
     if (showOnlyInStock) {
       filtered = filtered.filter((card: CardType) => card.stock > 0);
     }
 
-    // Ordenação
     filtered = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "name":
@@ -202,7 +194,6 @@ const Catalogo: React.FC = () => {
     return typeColors[type.toLowerCase()] || "#A8A8A8";
   };
 
-  // Paginação
   const totalPages = Math.ceil(filteredCards.length / ITEMS_PER_PAGE);
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
@@ -268,7 +259,6 @@ const Catalogo: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Filtros */}
       <Card sx={{ mb: 3, p: 2 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
           <FilterList />
@@ -404,7 +394,7 @@ const Catalogo: React.FC = () => {
                 height: "100%",
                 display: "flex",
                 flexDirection: viewMode === "grid" ? "column" : "row",
-                boxShadow: 2, // sombra menor
+                boxShadow: 2,
                 cursor: "pointer",
                 transition: "all 0.3s ease",
                 position: "relative",
@@ -415,7 +405,6 @@ const Catalogo: React.FC = () => {
               }}
               onClick={() => navigate(`/card/${card.id}`)}
             >
-              {/* Botão de favorito */}
               <IconButton
                 sx={{
                   position: "absolute",
@@ -448,7 +437,7 @@ const Catalogo: React.FC = () => {
                   alignItems: "center",
                   justifyContent: "center",
                   flexShrink: 0,
-                  mt: 3, // margem no topo da imagem
+                  mt: 3,
                   border: "2px solid rgba(255,255,255,0.3)",
                   borderRadius: 2,
                   boxShadow: "0 4px 8px rgba(0,0,0,0.2)",
@@ -475,10 +464,10 @@ const Catalogo: React.FC = () => {
                   flexGrow: 1,
                   display: "flex",
                   flexDirection: "column",
-                  pt: 4, // padding-top maior especificamente
-                  px: 3, // padding lateral
-                  pb: 3, // padding bottom
-                  gap: 2, // espaçamento entre elementos internos
+                  pt: 4,
+                  px: 3,
+                  pb: 3,
+                  gap: 2,
                 }}
               >
                 <Typography gutterBottom variant="h6" component="h2">

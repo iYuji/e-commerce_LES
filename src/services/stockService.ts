@@ -45,7 +45,6 @@ export class StockService {
 
     // Validar se há estoque suficiente
     for (const item of cartItems) {
-      // ✅ CORREÇÃO: usar item.card.id ao invés de item.cardId
       const card = cards.find((c) => c.id === item.card.id);
 
       if (!card) {
@@ -71,9 +70,7 @@ export class StockService {
       return { success: false, errors };
     }
 
-    // Dar baixa no estoque
     for (const item of cartItems) {
-      // ✅ CORREÇÃO: usar item.card.id ao invés de item.cardId
       const cardIndex = cards.findIndex((c) => c.id === item.card.id);
 
       if (cardIndex !== -1) {
@@ -85,9 +82,7 @@ export class StockService {
       }
     }
 
-    // Salvar no localStorage
     Store.writeStore(CARDS_KEY, cards);
-    console.log("✅ Estoque atualizado com sucesso!");
 
     // Disparar evento para atualizar a UI
     window.dispatchEvent(new CustomEvent("stock:updated"));
@@ -102,7 +97,6 @@ export class StockService {
     const cards = this.getCards();
 
     for (const item of cartItems) {
-      // ✅ CORREÇÃO: usar item.card.id ao invés de item.cardId
       const cardIndex = cards.findIndex((c) => c.id === item.card.id);
 
       if (cardIndex !== -1) {
@@ -123,7 +117,6 @@ export class StockService {
     const warnings: string[] = [];
 
     for (const item of cartItems) {
-      // ✅ CORREÇÃO: usar item.card.id ao invés de item.cardId
       const card = cards.find((c) => c.id === item.card.id);
 
       if (!card) {

@@ -92,7 +92,7 @@ const AddressManager: React.FC<AddressManagerProps> = ({
         state: "",
         zipCode: "",
         phone: "",
-        isDefault: addresses.length === 0, // Primeiro endereço é padrão
+        isDefault: addresses.length === 0,
         label: "",
       });
     }
@@ -118,7 +118,6 @@ const AddressManager: React.FC<AddressManagerProps> = ({
   };
 
   const handleSaveAddress = () => {
-    // Validação local
     const errorsList: string[] = [];
     if (!formData.firstName.trim()) errorsList.push("Nome é obrigatório");
     if (!formData.lastName.trim()) errorsList.push("Sobrenome é obrigatório");

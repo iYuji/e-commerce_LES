@@ -72,7 +72,6 @@ const Cupons: React.FC = () => {
     const allCoupons = CouponService.getCoupons();
     const now = new Date();
 
-    // Filtrar cupons disponíveis (ativos e não expirados)
     const available = allCoupons.filter(
       (c: Coupon) =>
         c.isActive &&
@@ -80,14 +79,12 @@ const Cupons: React.FC = () => {
         (c.category === "promotional" || c.customerId === customerId)
     );
 
-    // Filtrar cupons usados (inativos)
     const used = allCoupons.filter(
       (c: Coupon) =>
         !c.isActive &&
         (c.category === "promotional" || c.customerId === customerId)
     );
 
-    // Filtrar cupons expirados (ativos mas com data passada)
     const expired = allCoupons.filter(
       (c: Coupon) =>
         c.isActive &&
@@ -105,7 +102,6 @@ const Cupons: React.FC = () => {
 
     if (existingCoupons.length === 0) {
       const newCoupons: Coupon[] = [
-        // Cupons de Boas-Vindas
         {
           id: "promo_001",
           code: "BEMVINDO10",
@@ -132,7 +128,6 @@ const Cupons: React.FC = () => {
           ).toISOString(),
         },
 
-        // Cupons de Frete
         {
           id: "promo_003",
           code: "FRETEGRATIS",
@@ -158,7 +153,6 @@ const Cupons: React.FC = () => {
           ).toISOString(),
         },
 
-        // Cupons de Desconto Percentual
         {
           id: "promo_005",
           code: "DESCONTO20",
@@ -199,7 +193,6 @@ const Cupons: React.FC = () => {
           ).toISOString(),
         },
 
-        // Cupons de Valor Fixo
         {
           id: "promo_008",
           code: "ECONOMIZE20",
@@ -237,7 +230,6 @@ const Cupons: React.FC = () => {
           ).toISOString(),
         },
 
-        // Cupons Especiais
         {
           id: "promo_011",
           code: "PRIMEIRACOMPRA",
@@ -265,7 +257,6 @@ const Cupons: React.FC = () => {
           ).toISOString(),
         },
 
-        // Cupons de Curta Duração (Urgência)
         {
           id: "promo_013",
           code: "HOJE10",
@@ -292,7 +283,6 @@ const Cupons: React.FC = () => {
           ).toISOString(),
         },
 
-        // Cupons Sem Mínimo
         {
           id: "promo_015",
           code: "DESCONTO5",

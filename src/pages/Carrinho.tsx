@@ -25,7 +25,6 @@ import * as Store from "../store/index";
 import { CartItem, Coupon } from "../types";
 import { CouponService } from "../services/couponService";
 
-// Adicionar função para atualizar quantidade no store
 const updateQuantityInStore = (itemId: string, newQuantity: number) => {
   const cart = Store.getCart();
   const itemIndex = cart.findIndex((item: CartItem) => item.id === itemId);
@@ -82,7 +81,6 @@ const Carrinho: React.FC = () => {
     if (appliedCoupons.length === 0) return 0;
     const subtotal = getSubtotal();
 
-    // Calcular desconto total de todos os cupons aplicados
     return appliedCoupons.reduce((total, coupon) => {
       return total + CouponService.calculateDiscount(coupon, subtotal);
     }, 0);
@@ -97,7 +95,6 @@ const Carrinho: React.FC = () => {
 
     console.log("🎫 Tentando aplicar cupom:", couponCode);
 
-    // Obter customer ID da sessão
     const session = Store.getSession();
     const customerId = session?.user?.id;
     const subtotal = getSubtotal();
@@ -105,7 +102,6 @@ const Carrinho: React.FC = () => {
     console.log("👤 Customer ID:", customerId);
     console.log("💰 Subtotal:", subtotal);
 
-    // Validar cupom usando CouponService
     const validation = CouponService.validateCoupon(
       couponCode,
       customerId,
@@ -122,7 +118,6 @@ const Carrinho: React.FC = () => {
         (c) => c.category === "promotional"
       );
 
-      // Regra: Apenas 1 cupom promocional permitido
       if (
         newCoupon.category === "promotional" &&
         promotionalCoupons.length > 0
@@ -133,7 +128,6 @@ const Carrinho: React.FC = () => {
         return;
       }
 
-      // Regra: Não adicionar cupom duplicado
       if (appliedCoupons.some((c) => c.code === newCoupon.code)) {
         setCouponError("Este cupom já foi aplicado.");
         return;

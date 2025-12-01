@@ -118,7 +118,6 @@ const CreditCardManager: React.FC<CreditCardManagerProps> = ({
     const allCards = Store.getCreditCards(customerId);
 
     if (editingCard) {
-      // Atualizar cartão existente
       const updatedCards = allCards.map((c) =>
         c.id === editingCard.id
           ? { ...c, ...formData }
@@ -128,7 +127,6 @@ const CreditCardManager: React.FC<CreditCardManagerProps> = ({
       );
       Store.writeStore("creditCards", updatedCards);
     } else {
-      // Criar novo cartão
       const newCard: CreditCardType = {
         id: `card_${Date.now()}`,
         customerId,

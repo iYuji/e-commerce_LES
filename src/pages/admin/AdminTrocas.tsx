@@ -91,12 +91,10 @@ const AdminTrocas: React.FC = () => {
   }, [exchanges, statusFilter]);
 
   const loadData = () => {
-    // Carregar trocas do localStorage
     const stored = localStorage.getItem("exchange_requests");
     const loadedExchanges: ExchangeRequest[] = stored ? JSON.parse(stored) : [];
     setExchanges(loadedExchanges);
 
-    // Carregar clientes
     const loadedCustomers = Store.getCustomers();
     setCustomers(loadedCustomers);
   };
@@ -108,7 +106,6 @@ const AdminTrocas: React.FC = () => {
       filtered = filtered.filter((ex) => ex.status === statusFilter);
     }
 
-    // Ordenar por data (mais recente primeiro)
     filtered.sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
@@ -171,7 +168,6 @@ const AdminTrocas: React.FC = () => {
   };
 
   const returnStockToInventory = (exchange: ExchangeRequest) => {
-    // Devolver produtos ao estoque
     const itemsToReturn = exchange.items.map((item) => ({
       id: item.productId,
       cardId: item.productId,
@@ -199,17 +195,14 @@ const AdminTrocas: React.FC = () => {
       return;
     }
 
-    // Atualizar status
     allExchanges[exchangeIndex].status = "Aprovada";
     allExchanges[exchangeIndex].updatedAt = new Date().toISOString();
 
-    // Salvar
     localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
 
     loadData();
     showSnackbar("Troca aprovada com sucesso!", "success");
 
-    // Atualizar exchange selecionada
     if (selectedExchange?.id === exchangeId) {
       setSelectedExchange(allExchanges[exchangeIndex]);
     }
@@ -225,11 +218,9 @@ const AdminTrocas: React.FC = () => {
       return;
     }
 
-    // Atualizar status
     allExchanges[exchangeIndex].status = "Recusada";
     allExchanges[exchangeIndex].updatedAt = new Date().toISOString();
 
-    // Salvar
     localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
 
     loadData();
@@ -249,18 +240,14 @@ const AdminTrocas: React.FC = () => {
 
     const exchange = allExchanges[exchangeIndex];
 
-    // 1. Devolver produtos ao estoque
     returnStockToInventory(exchange);
 
-    // 2. Gerar cupom de troca
     const couponCode = generateExchangeCoupon(exchange);
 
-    // 3. Atualizar status e salvar cupom gerado
     allExchanges[exchangeIndex].status = "Produto Recebido";
     allExchanges[exchangeIndex].exchangeCouponCode = couponCode;
     allExchanges[exchangeIndex].updatedAt = new Date().toISOString();
 
-    // Salvar
     localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
 
     loadData();
@@ -269,7 +256,6 @@ const AdminTrocas: React.FC = () => {
       "success"
     );
 
-    // Atualizar exchange selecionada
     if (selectedExchange?.id === exchangeId) {
       setSelectedExchange(allExchanges[exchangeIndex]);
     }
@@ -285,17 +271,14 @@ const AdminTrocas: React.FC = () => {
       return;
     }
 
-    // Atualizar status
     allExchanges[exchangeIndex].status = "Concluída";
     allExchanges[exchangeIndex].updatedAt = new Date().toISOString();
 
-    // Salvar
     localStorage.setItem("exchange_requests", JSON.stringify(allExchanges));
 
     loadData();
     showSnackbar("Troca concluída!", "success");
 
-    // Atualizar exchange selecionada
     if (selectedExchange?.id === exchangeId) {
       setSelectedExchange(allExchanges[exchangeIndex]);
     }

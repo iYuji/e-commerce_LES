@@ -26,7 +26,6 @@ import AdminRelatorios from "./pages/admin/AdminRelatorios";
 import AdminTrocas from "./pages/admin/AdminTrocas";
 
 function App() {
-  // Ensure initial data is seeded
   React.useEffect(() => {
     ensureSeed();
   }, []);

@@ -156,6 +156,7 @@ export function ensureSeed(): void {
         stock: 50,
         description: "Mouse Pokémon elétrico muito popular",
         image: "https://images.pokemontcg.io/xy1/42_hires.png",
+        category: undefined,
       },
       {
         id: "2",
@@ -166,6 +167,7 @@ export function ensureSeed(): void {
         stock: 5,
         description: "Pokémon dragão de fogo lendário",
         image: "https://images.pokemontcg.io/base1/4_hires.png",
+        category: undefined,
       },
       {
         id: "3",
@@ -176,6 +178,7 @@ export function ensureSeed(): void {
         stock: 8,
         description: "Pokémon tartaruga de água poderoso",
         image: "https://images.pokemontcg.io/base1/2_hires.png",
+        category: undefined,
       },
     ];
     writeStore(STORE_KEYS.cards, sampleCards);
@@ -190,6 +193,7 @@ export function ensureSeed(): void {
         type: "percentage",
         expiresAt: "2025-12-31",
         isActive: true,
+        category: undefined,
       },
     ];
     writeStore(STORE_KEYS.coupons, sampleCoupons);

@@ -143,16 +143,13 @@ const Auth: React.FC = () => {
     setError("");
 
     try {
-      // Simular processo de login
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Buscar clientes do Store
       const customers = Store.getCustomers();
       const passwordStore = JSON.parse(
         localStorage.getItem("customer_passwords") || "{}"
       );
 
-      // Verificar credenciais
       const customer = customers.find((c) => c.email === loginForm.email);
 
       if (!customer || passwordStore[customer.id] !== loginForm.password) {
@@ -160,7 +157,6 @@ const Auth: React.FC = () => {
         return;
       }
 
-      // Login bem-sucedido
       Store.setSession({
         userId: customer.id,
         user: customer,
@@ -186,19 +182,15 @@ const Auth: React.FC = () => {
     setError("");
 
     try {
-      // Simular processo de cadastro
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Buscar clientes existentes
       const customers = Store.getCustomers();
 
-      // Verificar se e-mail já existe
       if (customers.some((c) => c.email === registerForm.email)) {
         setError("Este e-mail já está cadastrado");
         return;
       }
 
-      // Criar novo cliente
       const newCustomer: Customer = {
         id: `customer_${Date.now()}`,
         name: `${registerForm.firstName} ${registerForm.lastName}`,
@@ -207,7 +199,6 @@ const Auth: React.FC = () => {
         createdAt: new Date().toISOString(),
       };
 
-      // Salvar cliente
       customers.push(newCustomer);
       Store.writeStore(Store.STORE_KEYS.customers, customers);
 
@@ -223,7 +214,6 @@ const Auth: React.FC = () => {
       );
       setActiveTab(0);
 
-      // Preencher email no formulário de login
       setLoginForm({
         email: registerForm.email,
         password: "",
@@ -248,7 +238,6 @@ const Auth: React.FC = () => {
     setLoading(true);
     setError("");
 
-    // Simular login social
     setTimeout(() => {
       setSuccess(`Login com ${provider} realizado com sucesso!`);
       setTimeout(() => {
@@ -309,7 +298,6 @@ const Auth: React.FC = () => {
 
         <Box sx={{ mt: 3 }}>
           {activeTab === 0 ? (
-            // Login Form
             <Box component="form" onSubmit={handleLogin}>
               <TextField
                 fullWidth
@@ -376,7 +364,6 @@ const Auth: React.FC = () => {
               </Link>
             </Box>
           ) : (
-            // Register Form
             <Box component="form" onSubmit={handleRegister}>
               <Grid container spacing={2}>
                 <Grid item xs={6}>
