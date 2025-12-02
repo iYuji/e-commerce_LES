@@ -109,6 +109,9 @@ export default function Layout({ children }: LayoutProps) {
               <MenuItem onClick={() => navigateAndClose("/admin/trocas")}>
                 Trocas Admin
               </MenuItem>
+              <MenuItem onClick={() => navigateAndClose("/admin/dados")}>
+                Backup/Restore
+              </MenuItem>
             </Menu>
 
             <IconButton

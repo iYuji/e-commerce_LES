@@ -24,6 +24,7 @@ import AdminEstoque from "./pages/admin/AdminEstoque";
 import Pedidos from "./pages/admin/Pedidos";
 import AdminRelatorios from "./pages/admin/AdminRelatorios";
 import AdminTrocas from "./pages/admin/AdminTrocas";
+import AdminDados from "./pages/admin/AdminDados";
 
 function App() {
   React.useEffect(() => {
@@ -59,6 +60,7 @@ function App() {
             <Route path="/admin/pedidos" element={<Pedidos />} />
             <Route path="/admin/relatorios" element={<AdminRelatorios />} />
             <Route path="/admin/trocas" element={<AdminTrocas />} />
+            <Route path="/admin/dados" element={<AdminDados />} />
           </Routes>
         </Layout>
       </Box>
